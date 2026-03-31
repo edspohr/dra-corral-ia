@@ -101,7 +101,7 @@ const tryImagenModel = async (
   }
 };
 
-// ── Fallback: gemini-2.0-flash-exp with IMAGE modality ─────────────────────
+// ── Fallback: gemini-2.1-flash-preview-image-generation with IMAGE modality ──
 
 const tryGeminiFlashFallback = async (
   request: GeminiRequest,
@@ -109,7 +109,7 @@ const tryGeminiFlashFallback = async (
   const genAI = new GoogleGenerativeAI(API_KEY);
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.1-flash-preview-image-generation',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
   });
@@ -130,7 +130,7 @@ const tryGeminiFlashFallback = async (
     if (part.inlineData?.mimeType?.startsWith('image/')) {
       return {
         generatedImageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-        modelUsed: 'gemini-2.0-flash-exp',
+        modelUsed: 'gemini-2.1-flash-preview-image-generation',
       };
     }
   }
