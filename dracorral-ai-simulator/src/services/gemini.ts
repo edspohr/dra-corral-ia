@@ -135,7 +135,44 @@ const tryGeminiFlashFallback = async (
     }
   }
 
-  throw new Error('No image returned by Gemini fallback model');
+  throw new Error('No image returned by gemini-2.1-flash-preview-image-generation');
+};
+
+// ── Fallback 2: gemini-3-flash-preview with IMAGE modality ────────────────
+
+const tryGeminiFlashPreview = async (
+  request: GeminiRequest,
+): Promise<GeminiResult> => {
+  const genAI = new GoogleGenerativeAI(API_KEY);
+
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-3-flash-preview',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
+  });
+
+  const imagePart = {
+    inlineData: {
+      data: request.photoBase64,
+      mimeType: request.photoMimeType,
+    },
+  };
+
+  const textPart = { text: buildPrompt(request.procedures) };
+
+  const result = await model.generateContent([textPart, imagePart]);
+  const response = result.response;
+
+  for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+    if (part.inlineData?.mimeType?.startsWith('image/')) {
+      return {
+        generatedImageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+        modelUsed: 'gemini-3-flash-preview',
+      };
+    }
+  }
+
+  throw new Error('No image returned by gemini-3-flash-preview');
 };
 
 // ── Main export ────────────────────────────────────────────────────────────
@@ -147,9 +184,14 @@ export const generateWithGemini = async (
     throw new Error('GEMINI_KEY_MISSING');
   }
 
-  // Try primary Imagen 3 first, fall back to gemini-2.0-flash-exp
+  // Cascade: Imagen 3 → gemini-2.1-flash-preview-image-generation → gemini-3-flash-preview
   const primaryResult = await tryImagenModel(request);
   if (primaryResult) return primaryResult;
 
-  return tryGeminiFlashFallback(request);
+  try {
+    return await tryGeminiFlashFallback(request);
+  } catch (err) {
+    console.warn('[Gemini] gemini-2.1-flash-preview-image-generation failed, trying gemini-3-flash-preview:', err);
+    return tryGeminiFlashPreview(request);
+  }
 };
