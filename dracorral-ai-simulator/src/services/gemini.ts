@@ -58,58 +58,57 @@ MANDATORY RULES — follow all of them strictly:
 Generate the single "after" portrait image applying these procedures naturally.`;
 };
 
-// ── Primary: Gemini Imagen 3 ───────────────────────────────────────────────
+// ── Primary: gemini-3-pro-image-preview ───────────────────────────────────
 
-const tryImagenModel = async (
+const tryProModel = async (
   request: GeminiRequest,
 ): Promise<GeminiResult | null> => {
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
 
     const model = genAI.getGenerativeModel({
-      model: 'imagen-3.0-generate-001',
+      model: 'gemini-3-pro-image-preview',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (model as any).generateImages({
-      prompt: buildPrompt(request.procedures),
-      referenceImages: [
-        {
-          referenceType: 'REFERENCE_TYPE_SUBJECT',
-          referenceImage: {
-            image: {
-              imageBytes: request.photoBase64,
-              mimeType: request.photoMimeType,
-            },
-          },
-        },
-      ],
-      numberOfImages: 1,
-      aspectRatio: '1:1',
-    });
-
-    const imageBytes = result?.images?.[0]?.imageBytes;
-    if (!imageBytes) return null;
-
-    return {
-      generatedImageUrl: `data:image/png;base64,${imageBytes}`,
-      modelUsed: 'imagen-3.0-generate-001',
+    const imagePart = {
+      inlineData: {
+        data: request.photoBase64,
+        mimeType: request.photoMimeType,
+      },
     };
+
+    const textPart = { text: buildPrompt(request.procedures) };
+
+    const result = await model.generateContent([textPart, imagePart]);
+    const response = result.response;
+
+    for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+      if (part.inlineData?.mimeType?.startsWith('image/')) {
+        return {
+          generatedImageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+          modelUsed: 'gemini-3-pro-image-preview',
+        };
+      }
+    }
+
+    return null;
   } catch (err) {
-    console.warn('[Gemini] Imagen 3 unavailable, trying fallback:', err);
+    console.warn('[Gemini] gemini-3-pro-image-preview unavailable, trying fallback:', err);
     return null;
   }
 };
 
-// ── Fallback: gemini-2.1-flash-preview-image-generation with IMAGE modality ──
+// ── Fallback: gemini-3.1-flash-image-preview ──────────────────────────────
 
-const tryGeminiFlashFallback = async (
+const tryFlashFallback = async (
   request: GeminiRequest,
 ): Promise<GeminiResult> => {
   const genAI = new GoogleGenerativeAI(API_KEY);
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.1-flash-preview-image-generation',
+    model: 'gemini-3.1-flash-image-preview',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
   });
@@ -130,49 +129,12 @@ const tryGeminiFlashFallback = async (
     if (part.inlineData?.mimeType?.startsWith('image/')) {
       return {
         generatedImageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-        modelUsed: 'gemini-2.1-flash-preview-image-generation',
+        modelUsed: 'gemini-3.1-flash-image-preview',
       };
     }
   }
 
-  throw new Error('No image returned by gemini-2.1-flash-preview-image-generation');
-};
-
-// ── Fallback 2: gemini-3-flash-preview with IMAGE modality ────────────────
-
-const tryGeminiFlashPreview = async (
-  request: GeminiRequest,
-): Promise<GeminiResult> => {
-  const genAI = new GoogleGenerativeAI(API_KEY);
-
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-3-flash-preview',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
-  });
-
-  const imagePart = {
-    inlineData: {
-      data: request.photoBase64,
-      mimeType: request.photoMimeType,
-    },
-  };
-
-  const textPart = { text: buildPrompt(request.procedures) };
-
-  const result = await model.generateContent([textPart, imagePart]);
-  const response = result.response;
-
-  for (const part of response.candidates?.[0]?.content?.parts ?? []) {
-    if (part.inlineData?.mimeType?.startsWith('image/')) {
-      return {
-        generatedImageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-        modelUsed: 'gemini-3-flash-preview',
-      };
-    }
-  }
-
-  throw new Error('No image returned by gemini-3-flash-preview');
+  throw new Error('No image returned by gemini-3.1-flash-image-preview');
 };
 
 // ── Main export ────────────────────────────────────────────────────────────
@@ -184,14 +146,9 @@ export const generateWithGemini = async (
     throw new Error('GEMINI_KEY_MISSING');
   }
 
-  // Cascade: Imagen 3 → gemini-2.1-flash-preview-image-generation → gemini-3-flash-preview
-  const primaryResult = await tryImagenModel(request);
+  // Cascade: gemini-3-pro-image-preview → gemini-3.1-flash-image-preview
+  const primaryResult = await tryProModel(request);
   if (primaryResult) return primaryResult;
 
-  try {
-    return await tryGeminiFlashFallback(request);
-  } catch (err) {
-    console.warn('[Gemini] gemini-2.1-flash-preview-image-generation failed, trying gemini-3-flash-preview:', err);
-    return tryGeminiFlashPreview(request);
-  }
+  return tryFlashFallback(request);
 };
