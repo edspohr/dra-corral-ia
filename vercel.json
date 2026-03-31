@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd dracorral-ai-simulator && npm install && npm run build",
+  "outputDirectory": "dracorral-ai-simulator/dist",
+  "installCommand": "echo 'install handled in buildCommand'",
+  "framework": "vite"
+}
