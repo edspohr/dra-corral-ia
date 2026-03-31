@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+@theme {
+  /* Legacy palette — consumed by Step1Photo, Step2Procedures, Step3Result */
+  --color-cream: #FAF8F4;
+  --color-cream-dark: #F2ECE3;
+  --color-gold: #C9A96E;
+  --color-gold-light: #E8D5B0;
+  --color-gold-pale: #F5EDD8;
+  --color-charcoal: #2C2C2C;
+  --color-charcoal-light: #4A4A4A;
+  --color-muted: #8B8078;
+  --color-rose: #E8D5D0;
+  --color-white: #FFFFFF;
+
+  /* Sage green brand palette — new components */
+  --color-sage-dark:  #4A5C3A;
+  --color-sage-mid:   #5C6B47;
+  --color-sage-light: #7A8C65;
+  --color-sage-pale:  #E8EDE0;
+  --color-sage-ghost: #F2F5EE;
+  --color-warm-white: #FFFFFF;
+
+  /* Typography */
+  --font-family-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --font-family-sans: 'DM Sans', 'Inter', system-ui, sans-serif;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+}
+
+:root {
+  /* Dra. Corral — sage green brand palette */
+  --sage-dark:    #4A5C3A;
+  --sage-mid:     #5C6B47;
+  --sage-light:   #7A8C65;
+  --sage-pale:    #E8EDE0;
+  --sage-ghost:   #F2F5EE;
+  --cream:        #FAF8F4;
+  --warm-white:   #FFFFFF;
+  --text-dark:    #1A1A1A;
+  --text-muted:   #6B6B6B;
+  --text-on-sage: #FFFFFF;
+
+  /* Typography */
+  --font-serif: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --font-sans:  'DM Sans', 'Inter', system-ui, sans-serif;
+
+  /* Shape */
+  --radius-pill: 100px;
+  --radius-card: 16px;
+  --radius-sm:   8px;
+
+  /* Shadows */
+  --shadow-card:  0 4px 24px rgba(74, 92, 58, 0.12);
+  --shadow-image: 0 8px 40px rgba(0, 0, 0, 0.18);
+  --shadow-sage:  0 2px 16px rgba(90, 107, 71, 0.22);
+
+  /* Legacy vars — required by Step3Result, Step1Photo, Step2Procedures (do not remove) */
+  --cream-dark:     #F2ECE3;
+  --gold:           #C9A96E;
+  --gold-light:     #E8D5B0;
+  --gold-pale:      #F5EDD8;
+  --charcoal:       #2C2C2C;
+  --charcoal-light: #4A4A4A;
+  --muted:          #8B8078;
+  --shadow-soft:    0 4px 24px rgba(44, 44, 44, 0.08);
+  --shadow-gold:    0 2px 16px rgba(201, 169, 110, 0.18);
+  --radius:         16px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background-color: var(--cream);
+  color: var(--charcoal);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Ensure touch targets for mobile */
+button, a[role="button"] {
+  min-height: 44px;
+}
+
+input, select, textarea {
+  min-height: 44px;
+}
+
+/* Photo zone invitation pulse */
+@keyframes zone-invite {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.025); }
+}
+
+.photo-zone-pulse {
+  animation: zone-invite 3s ease-in-out infinite;
+}
+
+/* Smooth fade-in for post-selection actions */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  animation: fade-up 0.3s ease-out forwards;
+}
+
+/* Camera modal — lock body scroll when open */
+body.camera-open {
+  overflow: hidden;
+}
+
+/* Safe area for iPhone notch / Dynamic Island */
+.safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Prevent overscroll bounce breaking the camera modal on iOS */
+.camera-modal-overlay {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent keyboard from pushing Step1Email's bottom card off screen on iOS */
+@supports (-webkit-touch-callout: none) {
+  .email-card {
+    padding-bottom: max(32px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Scrollbar hide utility (ChipSelector horizontal scroll) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Card shake — validation feedback */
+@keyframes card-shake {
+  0%,  100% { transform: translateX(0); }
+  15%        { transform: translateX(-7px); }
+  30%        { transform: translateX(7px); }
+  45%        { transform: translateX(-5px); }
+  60%        { transform: translateX(5px); }
+  75%        { transform: translateX(-2px); }
+}
+
+.shake {
+  animation: card-shake 0.45s ease-in-out;
+}
+
+/* Sticky bar slide-up */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.slide-up {
+  animation: slide-up 0.25s ease-out forwards;
+}
+
+/* Loading screen — gold ripple rings */
+@keyframes gold-ripple {
+  0%   { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(2.4);  opacity: 0; }
+}
+
+.gold-ripple-ring {
+  animation: gold-ripple 2.2s ease-out infinite;
+}
+.gold-ripple-ring:nth-child(2) { animation-delay: 0.65s; }
+.gold-ripple-ring:nth-child(3) { animation-delay: 1.3s; }
+
+/* Indeterminate progress bar */
+@keyframes progress-indeterminate {
+  0%   { left: -45%; width: 40%; }
+  60%  { left:  60%; width: 40%; }
+  100% { left: 110%; width: 10%; }
+}
+
+.progress-indeterminate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.75), transparent);
+  animation: progress-indeterminate 1.8s ease-in-out infinite;
+}
+
+/* CTA button attention pulse */
+@keyframes cta-pulse {
+  0%, 100% { box-shadow: var(--shadow-gold); }
+  50%       { box-shadow: 0 0 0 10px rgba(201, 169, 110, 0.12), var(--shadow-gold); }
+}
+
+.cta-pulse {
+  animation: cta-pulse 3s ease-in-out infinite;
+}
+
+/* Loading message swap */
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.msg-in {
+  animation: msg-in 0.35s ease-out forwards;
+}
+
+/* Step 4 — success card spring entrance */
+@keyframes scale-in {
+  0%   { transform: scale(0.82); opacity: 0; }
+  60%  { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+.scale-in {
+  animation: scale-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Step 4 — promo code shimmer */
+@keyframes code-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.code-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--gold-pale) 0%,
+    var(--gold-light) 35%,
+    #FFFBF0 50%,
+    var(--gold-light) 65%,
+    var(--gold-pale) 100%
+  );
+  background-size: 200% auto;
+  animation: code-shimmer 2.5s linear infinite;
+}

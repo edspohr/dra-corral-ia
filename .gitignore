@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+functions/lib/
+
+# Environment — never commit real keys
+.env
+.env.local
+*.local
+
+# Build output
+dist/
+dist-ssr/
+
+# macOS
+.DS_Store
+
+# Firebase emulator data
+.firebase/

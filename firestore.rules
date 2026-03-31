@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Leads: all access via Cloud Functions only — no direct client reads or writes
+    match /leads/{leadId} {
+      allow read, write: if false;
+    }
+
+    // Sessions: clients may read their own session doc (used to poll status),
+    // but never write directly
+    match /sessions/{sessionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

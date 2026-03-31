@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // User uploads: client write-once (≤10 MB, images only), public read
+    match /uploads/{sessionId}/{filename} {
+      allow write: if request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow read: if true;
+    }
+
+    // Generated results: only backend (Cloud Functions) may write, public read
+    match /results/{sessionId}/{filename} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
