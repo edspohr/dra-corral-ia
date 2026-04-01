@@ -3,11 +3,11 @@
  * AI image generation service for Dra. Corral Beauty Simulator.
  *
  * Strategy:
- * 1. Try Nano Banana Pro (gemini-3-pro-image-preview) — highest quality
- * 2. Fallback to Gemini 2.5 Flash with image output modality
- *
- * POC NOTE: API key is accessed directly from browser.
- * In production, all calls must be proxied through Firebase Cloud Functions.
+ * 1. If VITE_FUNCTIONS_BASE_URL is set, try the Cloud Function proxy
+ *    → on ANY failure (404, CORS, timeout, network error), fall back to direct
+ * 2. Direct mode: browser calls Gemini API directly (POC / fallback)
+ *    → Try gemini-3-pro-image-preview (Nano Banana Pro) first
+ *    → Fall back to gemini-2.5-flash-preview-04-17
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -66,6 +66,20 @@ MANDATORY RULES — violating any of these ruins the output:
 Generate the single "after treatment" portrait now.`;
 };
 
+// ─── Error class ──────────────────────────────────────────────────────────────
+
+export class GeminiApiError extends Error {
+  readonly userMessage: string;
+  readonly technical: string;
+
+  constructor(message: string, userMessage: string, technical: string) {
+    super(message);
+    this.name = 'GeminiApiError';
+    this.userMessage = userMessage;
+    this.technical = technical;
+  }
+}
+
 // ─── Primary: Nano Banana Pro ─────────────────────────────────────────────────
 
 const generateWithNanaBananaPro = async (
@@ -74,33 +88,23 @@ const generateWithNanaBananaPro = async (
   const startTime = Date.now();
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3-pro-image-preview',
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
 
     const result = await model.generateContent([
-      {
-        inlineData: {
-          data: request.photoBase64,
-          mimeType: request.photoMimeType,
-        },
-      },
+      { inlineData: { data: request.photoBase64, mimeType: request.photoMimeType } },
       { text: buildGenerationPrompt(request.selectedProcedures) },
     ]);
 
-    const response = result.response;
-
-    for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+    for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
         return {
           imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          modelUsed: 'gemini-3-pro-image-preview (Nano Banana Pro)',
+          modelUsed: 'gemini-3-pro-image-preview',
           generationTimeMs: Date.now() - startTime,
         };
       }
     }
 
-    // Model returned text only — trigger fallback
     console.warn('[AI] Nano Banana Pro returned text only — falling back to Gemini 2.5 Flash');
     return null;
   } catch (error) {
@@ -126,18 +130,11 @@ const generateWithGemini25Flash = async (
   });
 
   const result = await model.generateContent([
-    {
-      inlineData: {
-        data: request.photoBase64,
-        mimeType: request.photoMimeType,
-      },
-    },
+    { inlineData: { data: request.photoBase64, mimeType: request.photoMimeType } },
     { text: buildGenerationPrompt(request.selectedProcedures) },
   ]);
 
-  const response = result.response;
-
-  for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+  for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
     if (part.inlineData?.mimeType?.startsWith('image/')) {
       return {
         imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
@@ -147,65 +144,18 @@ const generateWithGemini25Flash = async (
     }
   }
 
-  throw new Error(
-    'Neither Nano Banana Pro nor Gemini 2.5 Flash returned an image. ' +
-    'Check API key, quota, and model availability.',
+  throw new GeminiApiError(
+    'No image returned',
+    'No pudimos generar tu imagen. Por favor intenta nuevamente en 30 segundos.',
+    'Both models returned no image data',
   );
 };
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── Direct browser call (used as primary path or fallback) ──────────────────
 
-export class GeminiApiError extends Error {
-  readonly userMessage: string;
-  readonly technical: string;
-
-  constructor(message: string, userMessage: string, technical: string) {
-    super(message);
-    this.name = 'GeminiApiError';
-    this.userMessage = userMessage;
-    this.technical = technical;
-  }
-}
-
-export const generateBeautySimulation = async (
+const generateDirectFromBrowser = async (
   request: GeminiImageRequest,
 ): Promise<GeminiImageResult> => {
-  const startTime = Date.now();
-
-  // ── Proxy mode: route through Firebase Cloud Function ──────────────────────
-  const functionsBaseUrl = import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined;
-  if (functionsBaseUrl) {
-    const response = await fetch(`${functionsBaseUrl}/generateImage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        photoBase64: request.photoBase64,
-        photoMimeType: request.photoMimeType,
-        procedureNames: request.selectedProcedures.map(p => p.name),
-        procedureEffects: request.selectedProcedures.map(p => p.aiPromptEffect),
-      }),
-      signal: AbortSignal.timeout(130_000),
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({})) as { error?: string };
-      throw new GeminiApiError(
-        `Function error: ${response.status}`,
-        'No pudimos generar tu imagen. Por favor intenta nuevamente.',
-        err.error ?? 'Unknown function error',
-      );
-    }
-
-    const data = await response.json() as { imageDataUrl: string; modelUsed: string };
-    console.info(`[AI] ✓ Generated via Function with ${data.modelUsed} in ${Date.now() - startTime}ms`);
-    return {
-      imageDataUrl: data.imageDataUrl,
-      modelUsed: `[via Function] ${data.modelUsed}`,
-      generationTimeMs: Date.now() - startTime,
-    };
-  }
-
-  // ── Direct mode (POC): browser calls Gemini API directly ──────────────────
   if (!API_KEY || API_KEY.includes('your_')) {
     throw new GeminiApiError(
       'Missing API key',
@@ -228,4 +178,51 @@ export const generateBeautySimulation = async (
     `[AI] ✓ Generated with ${fallbackResult.modelUsed} in ${fallbackResult.generationTimeMs}ms`,
   );
   return fallbackResult;
+};
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export const generateBeautySimulation = async (
+  request: GeminiImageRequest,
+): Promise<GeminiImageResult> => {
+  const functionsBaseUrl = (import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined)?.trim();
+
+  // Proxy mode: try Cloud Function, fall back to direct on any failure
+  if (functionsBaseUrl) {
+    try {
+      const response = await fetch(`${functionsBaseUrl}/generateImage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoBase64: request.photoBase64,
+          photoMimeType: request.photoMimeType,
+          procedureNames: request.selectedProcedures.map(p => p.name),
+          procedureEffects: request.selectedProcedures.map(p => p.aiPromptEffect),
+        }),
+        signal: AbortSignal.timeout(130_000),
+      });
+
+      if (!response.ok) {
+        console.warn(`[AI] Cloud Function returned ${response.status} — falling back to direct call`);
+        return generateDirectFromBrowser(request);
+      }
+
+      const data = await response.json() as { imageDataUrl: string; modelUsed: string };
+      console.info(`[AI] ✓ Generated via Function with ${data.modelUsed}`);
+      return {
+        imageDataUrl: data.imageDataUrl,
+        modelUsed: `[via Function] ${data.modelUsed}`,
+        generationTimeMs: 0,
+      };
+    } catch (error) {
+      console.warn(
+        '[AI] Cloud Function unreachable — falling back to direct call:',
+        (error as Error).message,
+      );
+      return generateDirectFromBrowser(request);
+    }
+  }
+
+  // Direct mode (POC / no function URL configured)
+  return generateDirectFromBrowser(request);
 };
