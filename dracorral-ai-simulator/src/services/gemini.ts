@@ -1,154 +1,231 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+/**
+ * gemini.ts
+ * AI image generation service for Dra. Corral Beauty Simulator.
+ *
+ * Strategy:
+ * 1. Try Nano Banana Pro (gemini-3-pro-image-preview) — highest quality
+ * 2. Fallback to Gemini 2.5 Flash with image output modality
+ *
+ * POC NOTE: API key is accessed directly from browser.
+ * In production, all calls must be proxied through Firebase Cloud Functions.
+ */
 
-// POC NOTE: In production, this call must be proxied through a Firebase Function
-// to keep the API key server-side. For POC/demo purposes only, key is in .env.local.
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import type { Procedure } from '../data/procedures';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 
-export interface GeminiRequest {
-  photoBase64: string;          // base64 string WITHOUT the data:image/xxx;base64, prefix
+export interface GeminiImageRequest {
+  photoBase64: string;       // base64 WITHOUT data URL prefix
   photoMimeType: 'image/jpeg' | 'image/png' | 'image/webp';
-  procedures: {
-    id: string;
-    name: string;
-    zone?: string;
-    intensity?: string;
-  }[];
+  selectedProcedures: Procedure[];
 }
 
-export interface GeminiResult {
-  generatedImageUrl: string;    // data: URL ready for <img src>
+export interface GeminiImageResult {
+  imageDataUrl: string;      // complete data: URL for <img src>
   modelUsed: string;
+  generationTimeMs: number;
 }
 
-// ── Prompt builder ─────────────────────────────────────────────────────────
+// ─── Prompt Builder ───────────────────────────────────────────────────────────
 
-const buildPrompt = (procedures: GeminiRequest['procedures']): string => {
-  const procedureList = procedures
-    .map((p) => {
-      const details: string[] = [];
-      if (p.zone) details.push(`zone: ${p.zone}`);
-      if (p.intensity) details.push(`intensity: ${p.intensity}`);
-      return `- ${p.name}${details.length ? ` (${details.join(', ')})` : ''}`;
-    })
+const buildGenerationPrompt = (procedures: Procedure[]): string => {
+  const effectDescriptions = procedures
+    .map(p => `• ${p.name}: ${p.aiPromptEffect}`)
     .join('\n');
 
-  return `You are a medical aesthetics visualization specialist.
+  return `You are a medical aesthetics visualization specialist creating a \
+realistic "after treatment" portrait for a Chilean aesthetic medicine clinic.
 
-Analyze this person's facial photograph and generate a photorealistic portrait
-showing the natural, subtle results of these non-invasive cosmetic procedures:
+REFERENCE PERSON: The attached photograph shows the patient. Study their:
+- Exact facial structure, bone features, and proportions
+- Skin tone and undertones
+- Eye shape and color
+- Unique facial characteristics that make them recognizable
+- Current hair, makeup (if any), and background setting
 
-${procedureList}
+YOUR TASK: Generate a single photorealistic portrait of THE SAME PERSON \
+showing the natural, clinically accurate results of these aesthetic procedures:
 
-MANDATORY RULES — follow all of them strictly:
-1. PRESERVE IDENTITY: maintain 100% of the person's facial structure, bone features,
-   ethnicity, eye color, and unique characteristics. The person must be recognizable.
-2. NATURAL RESULTS: outcomes must look clinical and understated — never overdone,
-   never surgical, never cartoon-like. These are micro-corrections, not transformations.
-3. LIGHTING: subtly improve skin lighting — add a soft, flattering glow from slightly
-   above. Skin should look hydrated and healthy.
-4. COMPOSITION: maintain exact same angle, framing, background, and head position.
-5. QUALITY: output must look like a professional medical photography portrait.
-6. Botox/Toxin rules: relax expression lines only in specified zones; preserve
-   facial movement and expressiveness.
-7. Hyaluronic acid rules: add subtle volume in specified zones; avoid pillow-face.
-8. Skin booster rules: improve skin texture and add radiance; no structural changes.
-9. Biorevitalization rules: improve overall skin luminosity and tone uniformity.
+${effectDescriptions}
 
-Generate the single "after" portrait image applying these procedures naturally.`;
+MANDATORY RULES — violating any of these ruins the output:
+1. IDENTITY PRESERVATION (most critical): The generated person must be \
+   immediately recognizable as the same individual. Same face, same structure,
+   same eyes, same ethnicity. This is non-negotiable.
+2. CLINICAL SUBTLETY: Results must look like a skilled medical professional \
+   performed them — natural, not overdone, never cartoon-like or surgical.
+3. LIGHTING ENHANCEMENT: Subtly improve skin illumination. Add soft, flattering \
+   light from slightly above. Skin should look hydrated, healthy, radiant.
+4. COMPOSITION MATCH: Same angle, same framing, same head position as the \
+   reference photo. Match the background as closely as possible.
+5. PHOTOGRAPHY QUALITY: The output must look like a professional beauty portrait \
+   taken in a clinical setting — clean, sharp, authentic.
+6. NO TEXT: Do not add any text, watermarks, or annotations to the image.
+
+Generate the single "after treatment" portrait now.`;
 };
 
-// ── Primary: gemini-3-pro-image-preview ───────────────────────────────────
+// ─── Primary: Nano Banana Pro ─────────────────────────────────────────────────
 
-const tryProModel = async (
-  request: GeminiRequest,
-): Promise<GeminiResult | null> => {
+const generateWithNanaBananaPro = async (
+  request: GeminiImageRequest,
+): Promise<GeminiImageResult | null> => {
+  const startTime = Date.now();
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
-
     const model = genAI.getGenerativeModel({
       model: 'gemini-3-pro-image-preview',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
     });
 
-    const imagePart = {
-      inlineData: {
-        data: request.photoBase64,
-        mimeType: request.photoMimeType,
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: request.photoBase64,
+          mimeType: request.photoMimeType,
+        },
       },
-    };
+      { text: buildGenerationPrompt(request.selectedProcedures) },
+    ]);
 
-    const textPart = { text: buildPrompt(request.procedures) };
-
-    const result = await model.generateContent([textPart, imagePart]);
     const response = result.response;
 
     for (const part of response.candidates?.[0]?.content?.parts ?? []) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
         return {
-          generatedImageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          modelUsed: 'gemini-3-pro-image-preview',
+          imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+          modelUsed: 'gemini-3-pro-image-preview (Nano Banana Pro)',
+          generationTimeMs: Date.now() - startTime,
         };
       }
     }
 
+    // Model returned text only — trigger fallback
+    console.warn('[AI] Nano Banana Pro returned text only — falling back to Gemini 2.5 Flash');
     return null;
-  } catch (err) {
-    console.warn('[Gemini] gemini-3-pro-image-preview unavailable, trying fallback:', err);
+  } catch (error) {
+    console.warn('[AI] Nano Banana Pro unavailable:', (error as Error).message);
     return null;
   }
 };
 
-// ── Fallback: gemini-3.1-flash-image-preview ──────────────────────────────
+// ─── Fallback: Gemini 2.5 Flash with image output ────────────────────────────
 
-const tryFlashFallback = async (
-  request: GeminiRequest,
-): Promise<GeminiResult> => {
+const generateWithGemini25Flash = async (
+  request: GeminiImageRequest,
+): Promise<GeminiImageResult> => {
+  const startTime = Date.now();
   const genAI = new GoogleGenerativeAI(API_KEY);
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-3.1-flash-image-preview',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
+    model: 'gemini-2.5-flash-preview-04-17',
+    generationConfig: {
+      // @ts-expect-error: responseModalities is supported but not yet in type definitions
+      responseModalities: ['IMAGE', 'TEXT'],
+    },
   });
 
-  const imagePart = {
-    inlineData: {
-      data: request.photoBase64,
-      mimeType: request.photoMimeType,
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        data: request.photoBase64,
+        mimeType: request.photoMimeType,
+      },
     },
-  };
+    { text: buildGenerationPrompt(request.selectedProcedures) },
+  ]);
 
-  const textPart = { text: buildPrompt(request.procedures) };
-
-  const result = await model.generateContent([textPart, imagePart]);
   const response = result.response;
 
   for (const part of response.candidates?.[0]?.content?.parts ?? []) {
     if (part.inlineData?.mimeType?.startsWith('image/')) {
       return {
-        generatedImageUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-        modelUsed: 'gemini-3.1-flash-image-preview',
+        imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+        modelUsed: 'gemini-2.5-flash-preview-04-17',
+        generationTimeMs: Date.now() - startTime,
       };
     }
   }
 
-  throw new Error('No image returned by gemini-3.1-flash-image-preview');
+  throw new Error(
+    'Neither Nano Banana Pro nor Gemini 2.5 Flash returned an image. ' +
+    'Check API key, quota, and model availability.',
+  );
 };
 
-// ── Main export ────────────────────────────────────────────────────────────
+// ─── Public API ───────────────────────────────────────────────────────────────
 
-export const generateWithGemini = async (
-  request: GeminiRequest,
-): Promise<GeminiResult> => {
-  if (!API_KEY || API_KEY === 'REPLACE_WITH_YOUR_KEY') {
-    throw new Error('GEMINI_KEY_MISSING');
+export class GeminiApiError extends Error {
+  readonly userMessage: string;
+  readonly technical: string;
+
+  constructor(message: string, userMessage: string, technical: string) {
+    super(message);
+    this.name = 'GeminiApiError';
+    this.userMessage = userMessage;
+    this.technical = technical;
+  }
+}
+
+export const generateBeautySimulation = async (
+  request: GeminiImageRequest,
+): Promise<GeminiImageResult> => {
+  const startTime = Date.now();
+
+  // ── Proxy mode: route through Firebase Cloud Function ──────────────────────
+  const functionsBaseUrl = import.meta.env.VITE_FUNCTIONS_BASE_URL as string | undefined;
+  if (functionsBaseUrl) {
+    const response = await fetch(`${functionsBaseUrl}/generateImage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        photoBase64: request.photoBase64,
+        photoMimeType: request.photoMimeType,
+        procedureNames: request.selectedProcedures.map(p => p.name),
+        procedureEffects: request.selectedProcedures.map(p => p.aiPromptEffect),
+      }),
+      signal: AbortSignal.timeout(130_000),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({})) as { error?: string };
+      throw new GeminiApiError(
+        `Function error: ${response.status}`,
+        'No pudimos generar tu imagen. Por favor intenta nuevamente.',
+        err.error ?? 'Unknown function error',
+      );
+    }
+
+    const data = await response.json() as { imageDataUrl: string; modelUsed: string };
+    console.info(`[AI] ✓ Generated via Function with ${data.modelUsed} in ${Date.now() - startTime}ms`);
+    return {
+      imageDataUrl: data.imageDataUrl,
+      modelUsed: `[via Function] ${data.modelUsed}`,
+      generationTimeMs: Date.now() - startTime,
+    };
   }
 
-  // Cascade: gemini-3-pro-image-preview → gemini-3.1-flash-image-preview
-  const primaryResult = await tryProModel(request);
-  if (primaryResult) return primaryResult;
+  // ── Direct mode (POC): browser calls Gemini API directly ──────────────────
+  if (!API_KEY || API_KEY.includes('your_')) {
+    throw new GeminiApiError(
+      'Missing API key',
+      'Error de configuración del servicio de IA.',
+      'VITE_GEMINI_API_KEY is not set in .env.local',
+    );
+  }
 
-  return tryFlashFallback(request);
+  const primaryResult = await generateWithNanaBananaPro(request);
+  if (primaryResult) {
+    console.info(
+      `[AI] ✓ Generated with ${primaryResult.modelUsed} in ${primaryResult.generationTimeMs}ms`,
+    );
+    return primaryResult;
+  }
+
+  console.info('[AI] Using Gemini 2.5 Flash fallback...');
+  const fallbackResult = await generateWithGemini25Flash(request);
+  console.info(
+    `[AI] ✓ Generated with ${fallbackResult.modelUsed} in ${fallbackResult.generationTimeMs}ms`,
+  );
+  return fallbackResult;
 };

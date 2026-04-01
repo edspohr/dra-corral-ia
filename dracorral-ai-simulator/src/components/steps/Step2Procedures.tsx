@@ -1,7 +1,7 @@
 import { memo, useRef, useCallback, useState } from 'react';
 import { Check, ArrowLeft, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
-import { PROCEDURES, type ProcedureData } from '../../data/procedures';
+import { PROCEDURES, type Procedure } from '../../data/procedures';
 import type { ProcedureId, ProcedureSelection } from '../../types';
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ const ChipSelector = memo(function ChipSelector({
 // Memoised so only the toggled card re-renders when state changes
 
 interface ProcedureCardProps {
-  proc: ProcedureData;
+  proc: Procedure;
   sel: ProcedureSelection;
   onUpdateProcedure: (id: ProcedureId, changes: Partial<ProcedureSelection>) => void;
 }

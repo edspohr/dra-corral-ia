@@ -1,4 +1,4 @@
-export type ProcedureId = 'botox' | 'hyaluronic' | 'skinbooster' | 'biorevit';
+export type ProcedureId = 'toxina' | 'bioestimuladores' | 'exosomas' | 'polinucleotidos';
 export type ZoneOption = string;
 
 export interface ProcedureSelection {
@@ -9,7 +9,7 @@ export interface ProcedureSelection {
 }
 
 export interface SimulatorState {
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3 | 4 | 5;
   email: string | null;
   photoFile: File | null;
   photoPreviewUrl: string | null;

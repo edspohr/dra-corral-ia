@@ -1,7 +1,7 @@
 import { useReducer, useCallback } from 'react';
 import type { SimulatorState, ProcedureId, ProcedureSelection } from '../types';
 import { PROCEDURES } from '../data/procedures';
-import { generateWithGemini } from '../services/gemini';
+import { generateBeautySimulation, GeminiApiError } from '../services/gemini';
 import { optimizeImage } from '../utils/imageOptimizer';
 import { photoToBase64 } from '../utils/photoToBase64';
 
@@ -29,7 +29,7 @@ const initialState: SimulatorState = {
 // ── Action types ───────────────────────────────────────────────────────────
 
 type Action =
-  | { type: 'GO_TO_STEP'; payload: 1 | 2 | 3 | 4 }
+  | { type: 'GO_TO_STEP'; payload: 1 | 2 | 3 | 4 | 5 }
   | { type: 'SET_EMAIL'; payload: string }
   | { type: 'SET_PHOTO'; payload: { file: File; previewUrl: string } }
   | { type: 'UPDATE_PROCEDURE'; payload: { id: ProcedureId; changes: Partial<ProcedureSelection> } }
@@ -109,7 +109,7 @@ export function useSimulator() {
   }, []);
 
   const goToStep = useCallback(
-    (step: 1 | 2 | 3 | 4) => {
+    (step: 1 | 2 | 3 | 4 | 5) => {
       // Step 3→4: at least one procedure must be selected
       if (step === 4) {
         const hasSelection = state.procedures.some((p) => p.enabled);
@@ -175,52 +175,30 @@ export function useSimulator() {
       const optimized = await optimizeImage(state.photoFile);
       const { base64, mimeType } = await photoToBase64(optimized);
 
-      // Map enabled procedures to the shape gemini.ts expects
-      const enabledProcs = state.procedures
+      // Resolve full Procedure objects for enabled selections
+      const selectedProcedures = state.procedures
         .filter((p) => p.enabled)
-        .map((p) => {
-          const meta = PROCEDURES.find((pd) => pd.id === p.id)!;
-          return {
-            id: p.id,
-            name: meta.name,
-            zone: p.zone,
-            intensity: p.intensity,
-          };
-        });
+        .map((p) => PROCEDURES.find((proc) => proc.id === p.id)!);
 
-      const result = await generateWithGemini({
+      const result = await generateBeautySimulation({
         photoBase64: base64,
         photoMimeType: mimeType,
-        procedures: enabledProcs,
+        selectedProcedures,
       });
-
-      console.log('[Gemini] Image generated with model:', result.modelUsed);
 
       const sessionId = crypto.randomUUID();
       dispatch({
         type: 'SET_GENERATED_IMAGE',
-        payload: { url: result.generatedImageUrl, sessionId },
+        payload: { url: result.imageDataUrl, sessionId },
       });
     } catch (err) {
       const msg =
-        err instanceof Error && err.message === 'GEMINI_KEY_MISSING'
-          ? 'Error de configuración: falta la API key de Gemini.'
-          : 'No pudimos generar tu imagen. Por favor intenta nuevamente.';
+        err instanceof GeminiApiError
+          ? err.userMessage
+          : 'No pudimos generar tu imagen. Por favor intenta nuevamente en 30 segundos.';
       dispatch({ type: 'SET_ERROR', payload: msg });
     }
   }, [state.photoFile, state.procedures]);
-
-  // POC stub — Firebase removed. Phase B will wire real persistence if needed.
-  const saveLead = useCallback(async (data: {
-    nombre: string;
-    email: string;
-    telefono: string;
-    onComplete: (code: string) => void;
-  }) => {
-    const code = 'DC-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    dispatch({ type: 'SET_LEAD_CODE', payload: code });
-    data.onComplete(code);
-  }, []);
 
   const enabledProcedures = state.procedures.filter((p) => p.enabled);
 
@@ -238,6 +216,5 @@ export function useSimulator() {
     setError,
     reset,
     generateImage,
-    saveLead,
   };
 }

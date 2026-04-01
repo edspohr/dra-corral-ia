@@ -118,9 +118,20 @@ input, select, textarea {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* Alias used in inline style= strings */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 .fade-up {
   animation: fade-up 0.3s ease-out forwards;
+}
+
+/* AI generation progress bar — 0→85% over 25 s */
+@keyframes aiProgress {
+  from { width: 0%; }
+  to   { width: 85%; }
 }
 
 /* Camera modal — lock body scroll when open */

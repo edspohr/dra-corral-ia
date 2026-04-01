@@ -6,8 +6,9 @@ import { Step1Email } from './components/steps/Step1Email';
 import { Step1Photo } from './components/steps/Step1Photo';
 import { Step2Procedures } from './components/steps/Step2Procedures';
 import { Step3Result } from './components/steps/Step3Result';
+import { Step4Lead } from './components/steps/Step4Lead';
 
-const STEP_LABELS = ['Datos', 'Tu foto', 'Tratamientos', 'Resultado'];
+const STEP_LABELS = ['Datos', 'Tu foto', 'Tratamientos', 'Resultado', 'Agenda'];
 
 function App() {
   const simulator = useSimulator();
@@ -39,7 +40,7 @@ function App() {
       {state.step !== 1 && <Header />}
 
       {/* Step indicator: shown on steps 2 and 3 only */}
-      {state.step !== 1 && state.step !== 4 && (
+      {state.step !== 1 && state.step !== 4 && state.step !== 5 && (
         <StepIndicator currentStep={state.step} labels={STEP_LABELS} />
       )}
 
@@ -48,7 +49,7 @@ function App() {
         <Step1Email onComplete={(email) => simulator.setEmail(email)} />
       )}
 
-      {/* Step 2: Photo upload (was step 1) */}
+      {/* Step 2: Photo upload */}
       {state.step === 2 && (
         <Step1Photo
           initialPreviewUrl={state.photoPreviewUrl}
@@ -59,7 +60,7 @@ function App() {
         />
       )}
 
-      {/* Step 3: Procedure selection (was step 2) */}
+      {/* Step 3: Procedure selection */}
       {state.step === 3 && (
         <Step2Procedures
           procedures={state.procedures}
@@ -70,7 +71,7 @@ function App() {
         />
       )}
 
-      {/* Step 4: AI result (was step 3) */}
+      {/* Step 4: AI result */}
       {state.step === 4 && (
         <Step3Result
           originalPhotoUrl={state.photoPreviewUrl ?? ''}
@@ -79,8 +80,19 @@ function App() {
           isLoading={state.isLoading}
           error={state.error}
           onRetry={handleRetry}
-          onContinue={() => simulator.reset()}
+          onContinue={() => simulator.goToStep(5)}
           onBack={() => simulator.goToStep(3)}
+        />
+      )}
+
+      {/* Step 5: Lead capture + discount code */}
+      {state.step === 5 && (
+        <Step4Lead
+          email={state.email ?? ''}
+          sessionId={state.sessionId ?? crypto.randomUUID()}
+          procedures={enabledProcedures.map((p) => p.id)}
+          onComplete={(code) => simulator.setLeadCode(code)}
+          onBack={() => simulator.goToStep(4)}
         />
       )}
     </div>

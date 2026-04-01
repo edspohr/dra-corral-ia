@@ -9,7 +9,6 @@ import { RefreshCw, Share2, Check, ArrowLeft } from 'lucide-react';
 import clsx from 'clsx';
 import { PROCEDURES } from '../../data/procedures';
 import type { ProcedureSelection } from '../../types';
-import { Button } from '../ui/Button';
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -29,8 +28,8 @@ interface Step3ResultProps {
 const LOADING_MESSAGES = [
   'Analizando tu rostro...',
   'Aplicando los tratamientos seleccionados...',
-  'Ajustando la iluminación...',
-  'Añadiendo los últimos detalles...',
+  'Ajustando iluminación y detalles...',
+  'Añadiendo los toques finales...',
   'Tu resultado está casi listo...',
 ] as const;
 
@@ -38,13 +37,13 @@ const LOADING_MESSAGES = [
 
 const LoadingScreen = memo(function LoadingScreen() {
   const [msgIdx, setMsgIdx] = useState(0);
-  const [msgKey, setMsgKey] = useState(0); // force re-mount for animation
+  const [msgKey, setMsgKey] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => {
       setMsgIdx((i) => (i + 1) % LOADING_MESSAGES.length);
       setMsgKey((k) => k + 1);
-    }, 3000);
+    }, 3500);
     return () => clearInterval(id);
   }, []);
 
@@ -59,14 +58,10 @@ const LoadingScreen = memo(function LoadingScreen() {
           <div
             key={i}
             aria-hidden="true"
-            className={clsx(
-              'gold-ripple-ring',
-              'absolute w-20 h-20 rounded-full border-2',
-            )}
+            className={clsx('gold-ripple-ring', 'absolute w-20 h-20 rounded-full border-2')}
             style={{ borderColor: 'rgba(255,255,255,0.25)' }}
           />
         ))}
-        {/* D|C monogram */}
         <div
           className="relative z-10 w-20 h-20 rounded-full flex items-center justify-center"
           style={{
@@ -103,17 +98,28 @@ const LoadingScreen = memo(function LoadingScreen() {
         className="font-sans text-sm text-center mb-8"
         style={{ color: 'rgba(255,255,255,0.55)' }}
       >
-        Esto toma aproximadamente 15–20 segundos
+        Esto toma aproximadamente 20–30 segundos
       </p>
 
-      {/* Indeterminate progress bar */}
+      {/* Progress bar — animates 0→85% over 25s */}
       <div className="w-full max-w-xs">
         <div
-          className="progress-indeterminate relative h-1 rounded-full overflow-hidden"
+          className="relative h-1 rounded-full overflow-hidden"
           style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
           role="progressbar"
           aria-label="Generando imagen"
-        />
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 'inherit',
+              backgroundColor: 'rgba(255,255,255,0.7)',
+              width: '0%',
+              animation: 'aiProgress 25s cubic-bezier(0.1, 0.4, 0.3, 1) forwards',
+            }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -126,75 +132,62 @@ interface SliderProps {
   afterUrl: string;
 }
 
-const BeforeAfterSlider = memo(function BeforeAfterSlider({
-  beforeUrl,
-  afterUrl,
-}: SliderProps) {
+const BeforeAfterSlider = memo(function BeforeAfterSlider({ beforeUrl, afterUrl }: SliderProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState(50); // 0–100 %
+  // Start at 35% — shows mostly AFTER for maximum first impact
+  const [pos, setPos] = useState(35);
   const isDragging = useRef(false);
 
   const clamp = (v: number) => Math.max(2, Math.min(98, v));
 
   const posFromClientX = useCallback((clientX: number) => {
     const el = containerRef.current;
-    if (!el) return 50;
+    if (!el) return 35;
     const rect = el.getBoundingClientRect();
     return clamp(((clientX - rect.left) / rect.width) * 100);
   }, []);
 
-  // Global mouse events so dragging doesn't break when cursor leaves the box
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      setPos(posFromClientX(e.clientX));
-    };
-    const onUp = () => { isDragging.current = false; };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    isDragging.current = true;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setPos(posFromClientX(e.clientX));
   }, [posFromClientX]);
 
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      e.preventDefault(); // stop page scroll while dragging
-      setPos(posFromClientX(e.touches[0].clientX));
-    },
-    [posFromClientX],
-  );
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    setPos(posFromClientX(e.clientX));
+  }, [posFromClientX]);
+
+  const handlePointerUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-[var(--radius)] select-none touch-none cursor-ew-resize"
+      className="relative w-full overflow-hidden rounded-[var(--radius-card)] select-none touch-none cursor-ew-resize"
       style={{ aspectRatio: '3/4', boxShadow: 'var(--shadow-soft)' }}
-      onMouseDown={() => { isDragging.current = true; }}
-      onTouchStart={(e) => {
-        isDragging.current = true;
-        setPos(posFromClientX(e.touches[0].clientX));
-      }}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={() => { isDragging.current = false; }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
     >
       {/* Before (full size, behind) */}
       <img
         src={beforeUrl}
-        alt="Foto original"
+        alt="Tu foto original"
         className="absolute inset-0 w-full h-full object-cover"
         draggable={false}
       />
 
-      {/* After (clipped to left portion) */}
+      {/* After (clipped to show left `pos`%) */}
       <div
         className="absolute inset-0 overflow-hidden"
         style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
       >
         <img
           src={afterUrl}
-          alt="Simulación del resultado"
+          alt="Tu resultado simulado"
           className="absolute inset-0 w-full h-full object-cover"
           draggable={false}
         />
@@ -208,24 +201,57 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({
 
       {/* Drag handle */}
       <div
-        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white flex items-center justify-center pointer-events-none"
-        style={{
-          left: `${pos}%`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
-        }}
+        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-white flex items-center justify-center pointer-events-none"
+        style={{ left: `${pos}%`, boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}
       >
-        <span className="text-[10px] text-charcoal-light font-medium select-none leading-none">
+        <span className="text-[11px] text-charcoal-light font-medium select-none leading-none tracking-tighter">
           ◀▶
         </span>
       </div>
 
-      {/* ANTES / DESPUÉS labels */}
-      <span className="absolute top-3 left-3 font-sans text-[10px] font-semibold tracking-widest text-white uppercase px-2 py-1 rounded bg-black/30 backdrop-blur-sm pointer-events-none">
-        ANTES
-      </span>
-      <span className="absolute top-3 right-3 font-sans text-[10px] font-semibold tracking-widest text-white uppercase px-2 py-1 rounded bg-gold/70 backdrop-blur-sm pointer-events-none">
-        DESPUÉS
-      </span>
+      {/* ANTES label — bottom-left of visible BEFORE area */}
+      <div
+        className="absolute pointer-events-none"
+        style={{ bottom: '12px', left: '12px' }}
+      >
+        <span
+          style={{
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(4px)',
+            color: 'white',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            padding: '4px 10px',
+            borderRadius: '100px',
+          }}
+        >
+          ANTES
+        </span>
+      </div>
+
+      {/* DESPUÉS label — bottom-right of visible AFTER area */}
+      <div
+        className="absolute pointer-events-none"
+        style={{ bottom: '12px', right: '12px' }}
+      >
+        <span
+          style={{
+            background: 'var(--sage-dark)',
+            backdropFilter: 'blur(4px)',
+            color: 'white',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            letterSpacing: '0.15em',
+            textTransform: 'uppercase',
+            padding: '4px 10px',
+            borderRadius: '100px',
+          }}
+        >
+          DESPUÉS ✨
+        </span>
+      </div>
     </div>
   );
 });
@@ -239,7 +265,7 @@ export function Step3Result({
   isLoading,
   error,
   onRetry,
-  onContinue: _onContinue, // reserved for future step; WhatsApp CTA used instead
+  onContinue,
   onBack,
 }: Step3ResultProps) {
   const [shareCopied, setShareCopied] = useState(false);
@@ -275,7 +301,7 @@ export function Step3Result({
           url: generatedImageUrl,
         });
       } catch {
-        // User cancelled — no action needed
+        // User cancelled
       }
     } else {
       await navigator.clipboard.writeText(generatedImageUrl).catch(() => null);
@@ -284,7 +310,7 @@ export function Step3Result({
     }
   }, [generatedImageUrl]);
 
-  // ── Loading ──────────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -294,7 +320,7 @@ export function Step3Result({
     );
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────
+  // ── Error ──────────────────────────────────────────────────────────────
 
   if (error || !generatedImageUrl) {
     return (
@@ -340,13 +366,13 @@ export function Step3Result({
     );
   }
 
-  // ── Result ───────────────────────────────────────────────────────────────
+  // ── Result ─────────────────────────────────────────────────────────────
 
   return (
     <main className="flex-1 flex flex-col pb-8 safe-bottom">
       <div className="w-full max-w-2xl mx-auto px-4">
 
-        {/* ── Badge ── */}
+        {/* Badge */}
         <div className="flex justify-center pt-6 pb-4">
           <div className="inline-flex items-center gap-2 bg-gold-pale border border-gold/30 px-4 py-1.5 rounded-full">
             <span className="text-sm">✨</span>
@@ -356,68 +382,98 @@ export function Step3Result({
           </div>
         </div>
 
-        {/* ── Headline ── */}
+        {/* Headline */}
         <div className="text-center mb-6">
           <h1
-            className="text-[28px] sm:text-[38px] text-charcoal leading-tight"
-            style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 600 }}
+            className="text-[28px] sm:text-[38px] leading-tight"
+            style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--sage-dark)' }}
           >
-            Los resultados hablan por sí solos
+            Lo que verías en el espejo
           </h1>
-          <p className="font-sans text-sm text-muted mt-2 leading-relaxed max-w-md mx-auto">
-            Los procedimientos que seleccionaste son seguros, rápidos y con resultados inmediatos.
-            La Dra. Corral cuenta con más de 10 años de experiencia en armonización facial no invasiva.
+          <p className="font-sans text-sm mt-2 leading-relaxed max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
+            Los procedimientos que seleccionaste son seguros, rápidos y con resultados
+            que se notan desde la primera sesión. La Dra. Corral combina precisión clínica
+            con una mirada estética única para lograr resultados que respetan tu esencia.
           </p>
         </div>
 
         {/* ── Image section — blurred until disclaimer accepted ── */}
-        <div
-          ref={resultRef}
-          style={{
-            filter: disclaimerAccepted ? 'none' : 'blur(14px)',
-            pointerEvents: disclaimerAccepted ? 'auto' : 'none',
-            userSelect: disclaimerAccepted ? 'auto' : 'none',
-            transition: 'filter 0.6s ease',
-          }}
-        >
-          {/* Mobile slider */}
-          <div className="block sm:hidden mb-5">
-            <BeforeAfterSlider beforeUrl={originalPhotoUrl} afterUrl={generatedImageUrl} />
-            <p className="font-sans text-xs text-muted text-center mt-2">
-              Desliza para comparar
-            </p>
-          </div>
-
-          {/* Desktop side-by-side */}
-          <div className="hidden sm:grid grid-cols-2 gap-4 mb-6">
-            <div className="space-y-2">
-              <p className="font-sans text-xs text-muted text-center uppercase tracking-widest">
-                Antes
+        <div ref={resultRef}>
+          <div
+            style={{
+              filter: disclaimerAccepted ? 'none' : 'blur(18px)',
+              transition: 'filter 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              pointerEvents: disclaimerAccepted ? 'auto' : 'none',
+              userSelect: disclaimerAccepted ? 'auto' : 'none',
+              borderRadius: 'var(--radius-card)',
+              overflow: 'hidden',
+            }}
+            aria-hidden={!disclaimerAccepted}
+          >
+            {/* Mobile: drag-to-reveal slider */}
+            <div className="block sm:hidden mb-2">
+              <BeforeAfterSlider beforeUrl={originalPhotoUrl} afterUrl={generatedImageUrl} />
+              <p className="font-sans text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>
+                Desliza para comparar
               </p>
-              <div className="rounded-[var(--radius)] overflow-hidden" style={{ boxShadow: 'var(--shadow-soft)' }}>
-                <img
-                  src={originalPhotoUrl}
-                  alt="Foto original"
-                  className="w-full object-cover aspect-[3/4]"
-                />
-              </div>
             </div>
-            <div className="space-y-2">
-              <p className="font-sans text-xs text-gold text-center uppercase tracking-widest font-medium">
-                Después
-              </p>
-              <div className="rounded-[var(--radius)] overflow-hidden" style={{ boxShadow: 'var(--shadow-gold)' }}>
-                <img
-                  src={generatedImageUrl}
-                  alt="Simulación del resultado"
-                  className="w-full object-cover aspect-[3/4]"
-                />
+
+            {/* Desktop: side-by-side */}
+            <div className="hidden sm:block mb-5">
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '16px',
+                  borderRadius: 'var(--radius-card)',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* BEFORE */}
+                <div style={{ position: 'relative' }}>
+                  <img
+                    src={originalPhotoUrl}
+                    alt="Tu foto original"
+                    style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', display: 'block' }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute', bottom: '12px', left: '12px',
+                      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+                      color: 'white', fontFamily: 'var(--font-sans)',
+                      fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                      padding: '4px 10px', borderRadius: '100px',
+                    }}
+                  >
+                    ANTES
+                  </div>
+                </div>
+
+                {/* AFTER */}
+                <div style={{ position: 'relative' }}>
+                  <img
+                    src={generatedImageUrl}
+                    alt="Tu resultado simulado"
+                    style={{ width: '100%', aspectRatio: '3/4', objectFit: 'cover', display: 'block' }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute', bottom: '12px', right: '12px',
+                      background: 'var(--sage-dark)', backdropFilter: 'blur(4px)',
+                      color: 'white', fontFamily: 'var(--font-sans)',
+                      fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                      padding: '4px 10px', borderRadius: '100px',
+                    }}
+                  >
+                    DESPUÉS ✨
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── Disclaimer gate — floats after blurred image ── */}
+        {/* ── Disclaimer gate — below blurred image ── */}
         {!disclaimerAccepted && (
           <div
             style={{
@@ -437,17 +493,19 @@ export function Step3Result({
               }}
             >
               {/* Header */}
-              <p
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: 'var(--sage-dark)',
-                  marginBottom: '10px',
-                }}
-              >
-                ⚕️&nbsp; Resultado referencial
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '20px' }}>⚕️</span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: '18px',
+                    color: 'var(--sage-dark)',
+                    fontWeight: 600,
+                  }}
+                >
+                  Resultado referencial
+                </span>
+              </div>
 
               {/* Body */}
               <p
@@ -479,7 +537,7 @@ export function Step3Result({
                 profesional adaptada a ti.
               </p>
 
-              {/* Checkbox row */}
+              {/* Checkbox */}
               <div
                 role="checkbox"
                 aria-checked={disclaimerChecked}
@@ -495,7 +553,6 @@ export function Step3Result({
                   outline: 'none',
                 }}
               >
-                {/* Custom checkbox box */}
                 <div
                   style={{
                     width: '20px',
@@ -511,9 +568,7 @@ export function Step3Result({
                     transition: 'background 200ms ease',
                   }}
                 >
-                  {disclaimerChecked && (
-                    <Check size={12} color="white" strokeWidth={3} />
-                  )}
+                  {disclaimerChecked && <Check size={12} color="white" strokeWidth={3} />}
                 </div>
                 <span
                   style={{
@@ -521,101 +576,158 @@ export function Step3Result({
                     fontSize: '14px',
                     fontWeight: 500,
                     color: 'var(--text-dark)',
-                    lineHeight: 1.4,
+                    lineHeight: 1.5,
                   }}
                 >
-                  Entiendo que los resultados son referenciales
+                  Entiendo que los resultados son referenciales y que necesito
+                  una consulta de diagnóstico para un resultado personalizado
                 </span>
               </div>
 
-              {/* Reveal button — animate in when checked */}
+              {/* Reveal button */}
               {disclaimerChecked && (
-                <div className="fade-up" style={{ marginTop: '16px' }}>
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    style={{ width: '100%' }}
-                    onClick={handleAcceptDisclaimer}
-                  >
-                    Ver mi resultado →
-                  </Button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleAcceptDisclaimer}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: '52px',
+                    marginTop: '16px',
+                    background: 'var(--sage-dark)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 'var(--radius-pill)',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: '16px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    animation: 'fadeUp 0.3s ease forwards',
+                  }}
+                >
+                  Ver mi resultado →
+                </button>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Procedure info cards ── */}
-        <div className="space-y-3 mb-6">
-          {selectedProcsData.map(({ sel, proc }) => (
+        {/* ── Procedure impact cards ── */}
+        <div style={{ marginTop: '24px', marginBottom: '8px' }}>
+          {selectedProcsData.map(({ proc }) => (
             <div
               key={proc.id}
-              className="rounded-[var(--radius)] overflow-hidden border border-gold-light/50"
-              style={{ boxShadow: 'var(--shadow-soft)' }}
+              style={{
+                background: proc.color + '40',
+                border: `1.5px solid ${proc.color}`,
+                borderRadius: 'var(--radius-card)',
+                padding: '16px',
+                marginBottom: '12px',
+              }}
             >
-              {/* Card header */}
-              <div
-                className="flex items-center gap-3 px-4 py-3"
-                style={{ backgroundColor: `${proc.color}33` /* 20 % opacity */ }}
-              >
-                <div
-                  className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-base"
-                  style={{ backgroundColor: proc.color }}
-                >
-                  {proc.emoji}
-                </div>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '20px' }}>{proc.emoji}</span>
                 <div>
-                  <p
-                    className="text-[17px] text-charcoal leading-tight"
-                    style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 600 }}
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '18px',
+                      color: 'var(--sage-dark)',
+                      fontWeight: 600,
+                    }}
                   >
                     {proc.name}
-                  </p>
-                  {(sel.zone || sel.intensity) && (
-                    <p className="font-sans text-xs text-muted">
-                      {[sel.zone, sel.intensity].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    {proc.subtitle}
+                  </div>
                 </div>
               </div>
 
-              {/* Info row */}
-              <div className="grid grid-cols-3 divide-x divide-gold-light/40 px-0 py-0 bg-white/50">
+              {/* 3-column stats */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '8px',
+                  marginBottom: '12px',
+                }}
+              >
                 {[
-                  { emoji: '🌿', label: 'Dolor', value: `${proc.pain}/10`, sub: proc.painLabel },
-                  { emoji: '📅', label: 'Sesiones', value: String(proc.sessions), sub: proc.sessionsLabel },
-                  { emoji: '⏱', label: 'Duración', value: proc.duration, sub: null },
-                ].map((item) => (
-                  <div key={item.label} className="flex flex-col items-center py-3 px-2 text-center">
-                    <span className="text-base mb-0.5" aria-hidden="true">{item.emoji}</span>
-                    <p className="font-sans text-[10px] text-muted uppercase tracking-wide leading-none mb-1">
-                      {item.label}
-                    </p>
-                    <p className="font-sans text-sm font-semibold text-charcoal leading-tight">
-                      {item.value}
-                    </p>
-                    {item.sub && (
-                      <p className="font-sans text-[10px] text-muted leading-tight mt-0.5 line-clamp-2">
-                        {item.sub}
-                      </p>
-                    )}
+                  { icon: '🌿', label: 'Dolor', value: `${proc.pain}/10`, sub: proc.painLabel },
+                  { icon: '📅', label: 'Sesiones', value: String(proc.sessions), sub: proc.sessionsLabel },
+                  { icon: '⏱', label: 'Duración', value: proc.duration, sub: 'del efecto' },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    style={{
+                      textAlign: 'center',
+                      background: 'rgba(255,255,255,0.7)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '10px 6px',
+                    }}
+                  >
+                    <div style={{ fontSize: '16px', marginBottom: '2px' }}>{stat.icon}</div>
+                    <div
+                      style={{
+                        fontFamily: 'var(--font-serif)',
+                        fontSize: '18px',
+                        fontWeight: 600,
+                        color: 'var(--sage-dark)',
+                      }}
+                    >
+                      {stat.value}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: '10px',
+                        color: 'var(--text-muted)',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {stat.label}
+                    </div>
                   </div>
                 ))}
               </div>
 
-              {/* Aftercare tip */}
-              <div className="bg-cream-dark/60 px-4 py-2.5 border-t border-gold-light/30">
-                <p className="font-sans text-xs text-charcoal-light leading-relaxed">
-                  <span className="font-medium text-charcoal">Cuidados: </span>
-                  {proc.aftercare}
-                </p>
+              {/* Aftercare */}
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.6)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'flex-start',
+                }}
+              >
+                <span>💡</span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: '12px',
+                    color: 'var(--text-dark)',
+                    lineHeight: 1.6,
+                  }}
+                >
+                  <strong>Cuidados: </strong>{proc.aftercare}
+                </span>
               </div>
             </div>
           ))}
         </div>
 
         {/* ── Pricing CTA ── */}
-        <div className="space-y-3 mt-2">
+        <div style={{ marginTop: '8px' }}>
           {/* Dark sage pricing card */}
           <div
             style={{
@@ -624,6 +736,7 @@ export function Step3Result({
               padding: '24px',
               color: 'white',
               textAlign: 'center',
+              marginBottom: '12px',
             }}
           >
             <p
@@ -639,7 +752,6 @@ export function Step3Result({
               Sesión de Diagnóstico Personalizado
             </p>
 
-            {/* Price display */}
             <div
               style={{
                 display: 'flex',
@@ -649,74 +761,47 @@ export function Step3Result({
                 marginBottom: '4px',
               }}
             >
-              <span
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '16px',
-                  textDecoration: 'line-through',
-                  opacity: 0.55,
-                }}
-              >
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', textDecoration: 'line-through', opacity: 0.55 }}>
                 $25.000
               </span>
-              <span
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '36px',
-                  fontWeight: 600,
-                  lineHeight: 1,
-                }}
-              >
-                $15.000
+              <span style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', fontWeight: 600, lineHeight: 1 }}>
+                $15.000 CLP
               </span>
             </div>
 
-            <p
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: '12px',
-                opacity: 0.7,
-                marginBottom: '16px',
-              }}
-            >
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', opacity: 0.7, marginBottom: '16px' }}>
               Con tu código de descuento exclusivo
             </p>
 
-            {/* Included items */}
-            {[
-              '60 min con la Dra. Corral',
-              'Evaluación facial completa',
-              'Plan de tratamiento a medida',
-            ].map((item) => (
-              <p
-                key={item}
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '13px',
-                  opacity: 0.9,
-                  marginBottom: '4px',
-                }}
-              >
+            {['60 min con la Dra. Corral', 'Evaluación facial completa', 'Plan de tratamiento a medida'].map((item) => (
+              <p key={item} style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', opacity: 0.9, marginBottom: '4px' }}>
                 ✓ {item}
               </p>
             ))}
           </div>
 
-          {/* WhatsApp booking button */}
-          <Button
-            variant="white"
-            size="lg"
-            className="w-full"
-            onClick={() => {
-              const phone = import.meta.env.VITE_WA_PHONE || '56912345678';
-              const msg = encodeURIComponent(
-                '¡Hola Dra. Corral! Me gustaría agendar mi sesión de diagnóstico. Vi la simulación de mis tratamientos y quiero saber más. 😊',
-              );
-              window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+          {/* Primary CTA with pulse */}
+          <button
+            type="button"
+            onClick={onContinue}
+            className="cta-pulse"
+            style={{
+              display: 'block',
+              width: '100%',
+              height: '56px',
+              background: 'var(--sage-dark)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 'var(--radius-pill)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '17px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              marginBottom: '8px',
             }}
           >
-            💬 Agendar por WhatsApp
-          </Button>
+            Continuar →
+          </button>
 
           {/* Legal note */}
           <p
@@ -725,7 +810,7 @@ export function Step3Result({
               fontSize: '11px',
               color: 'var(--text-muted)',
               textAlign: 'center',
-              marginTop: '4px',
+              marginBottom: '12px',
             }}
           >
             * Precio sujeto a confirmación en consulta. Válido por tiempo limitado.

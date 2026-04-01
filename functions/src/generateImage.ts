@@ -1,6 +1,5 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
-import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import cors from 'cors';
@@ -13,7 +12,6 @@ const corsHandler = cors({
       'https://dracorral.cl',
       'https://www.dracorral.cl',
     ];
-    // Allow requests with no origin (mobile apps, Postman) and localhost in dev
     if (!origin || allowed.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
       callback(null, true);
     } else {
@@ -25,66 +23,66 @@ const corsHandler = cors({
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-interface ProcedureInput {
-  id: string;
-  zone?: string;
-  intensity?: string;
-}
-
-interface GenerateImageRequest {
+interface GenerateImageBody {
   photoBase64: string;
   photoMimeType: 'image/jpeg' | 'image/png' | 'image/webp';
-  procedures: ProcedureInput[];
-  sessionId: string;
+  procedureNames: string[];
+  procedureEffects: string[];
 }
 
 // ── Prompt builder ─────────────────────────────────────────────────────────
 
-function buildGeminiPrompt(procedures: ProcedureInput[]): string {
-  const procedureDetails = procedures
-    .map((p) => {
-      const details: string[] = [];
-      if (p.zone) details.push(`Zone: ${p.zone}`);
-      if (p.intensity) details.push(`Intensity: ${p.intensity}`);
-      return `- ${p.id.toUpperCase()}${details.length ? ' (' + details.join(', ') + ')' : ''}`;
-    })
+function buildPrompt(procedureNames: string[], procedureEffects: string[]): string {
+  const effectList = procedureNames
+    .map((name, i) => `• ${name}: ${procedureEffects[i] ?? ''}`)
     .join('\n');
 
-  return `You are a medical aesthetics visualization expert.
+  return `You are a medical aesthetics visualization specialist creating a \
+realistic "after treatment" portrait for a Chilean aesthetic medicine clinic.
 
-Analyze this person's face and generate a photorealistic image showing the natural, subtle results of the following non-invasive cosmetic procedures:
+REFERENCE PERSON: The attached photograph shows the patient. Study their:
+- Exact facial structure, bone features, and proportions
+- Skin tone and undertones
+- Eye shape and color
+- Unique facial characteristics that make them recognizable
+- Current hair, makeup (if any), and background setting
 
-${procedureDetails}
+YOUR TASK: Generate a single photorealistic portrait of THE SAME PERSON \
+showing the natural, clinically accurate results of these aesthetic procedures:
 
-STRICT GUIDELINES:
-- Maintain 100% of the person's identity, bone structure, ethnicity, and facial features
-- Results must look NATURAL and CLINICAL — not overdone, not cartoon-like
-- Subtly improve lighting to enhance skin glow and texture (soft, flattering light from slightly above)
-- For Botox/Toxin: subtly relax expression lines in the specified zones, maintain expressiveness
-- For Hyaluronic Acid: add natural volume in specified zones, avoid pillow-face effect
-- For Skin Boosters: improve skin texture, add subtle radiance and hydrated appearance
-- For Biorevitalization: improve overall skin quality and luminosity
-- Keep same angle, framing, and background as original photo
-- Final image must look like a professional beauty photograph
-- Output: single photorealistic portrait image, same dimensions as input
+${effectList}
 
-Generate the "after" result image showing these procedures applied naturally.`;
+MANDATORY RULES — violating any of these ruins the output:
+1. IDENTITY PRESERVATION (most critical): The generated person must be \
+   immediately recognizable as the same individual. Same face, same structure,
+   same eyes, same ethnicity. This is non-negotiable.
+2. CLINICAL SUBTLETY: Results must look like a skilled medical professional \
+   performed them — natural, not overdone, never cartoon-like or surgical.
+3. LIGHTING ENHANCEMENT: Subtly improve skin illumination. Add soft, flattering \
+   light from slightly above. Skin should look hydrated, healthy, radiant.
+4. COMPOSITION MATCH: Same angle, same framing, same head position as the \
+   reference photo. Match the background as closely as possible.
+5. PHOTOGRAPHY QUALITY: The output must look like a professional beauty portrait \
+   taken in a clinical setting — clean, sharp, authentic.
+6. NO TEXT: Do not add any text, watermarks, or annotations to the image.
+
+Generate the single "after treatment" portrait now.`;
 }
 
 // ── Validation ─────────────────────────────────────────────────────────────
 
-function validate(body: Partial<GenerateImageRequest>): string | null {
+function validate(body: Partial<GenerateImageBody>): string | null {
   if (!body.photoBase64 || typeof body.photoBase64 !== 'string') {
     return 'Se requiere photoBase64';
   }
   if (!body.photoMimeType || !['image/jpeg', 'image/png', 'image/webp'].includes(body.photoMimeType)) {
     return 'photoMimeType debe ser image/jpeg, image/png o image/webp';
   }
-  if (!body.procedures || !Array.isArray(body.procedures) || body.procedures.length === 0) {
-    return 'Se requiere al menos un procedimiento';
+  if (!body.procedureNames || !Array.isArray(body.procedureNames) || body.procedureNames.length === 0) {
+    return 'Se requiere al menos un procedimiento en procedureNames';
   }
-  if (!body.sessionId || typeof body.sessionId !== 'string') {
-    return 'Se requiere sessionId';
+  if (!body.procedureEffects || !Array.isArray(body.procedureEffects)) {
+    return 'Se requiere procedureEffects';
   }
   return null;
 }
@@ -92,7 +90,11 @@ function validate(body: Partial<GenerateImageRequest>): string | null {
 // ── Cloud Function ─────────────────────────────────────────────────────────
 
 export const generateImage = onRequest(
-  { timeoutSeconds: 120, memory: '512MiB' },
+  {
+    timeoutSeconds: 120,
+    memory: '512MiB',
+    secrets: ['GOOGLE_AI_KEY'],
+  },
   (req, res) => {
     corsHandler(req, res, async () => {
       if (req.method !== 'POST') {
@@ -100,67 +102,77 @@ export const generateImage = onRequest(
         return;
       }
 
-      const body = req.body as Partial<GenerateImageRequest>;
+      const body = req.body as Partial<GenerateImageBody>;
       const validationError = validate(body);
       if (validationError) {
         res.status(400).json({ error: validationError });
         return;
       }
 
-      const { photoBase64, photoMimeType, procedures, sessionId } =
-        body as GenerateImageRequest;
+      const { photoBase64, photoMimeType, procedureNames, procedureEffects } =
+        body as GenerateImageBody;
+
+      const apiKey = process.env.GOOGLE_AI_KEY;
+      if (!apiKey) {
+        logger.error('GOOGLE_AI_KEY secret not configured');
+        res.status(500).json({ error: 'Server configuration error' });
+        return;
+      }
 
       try {
-        // ── 1. Call Gemini ────────────────────────────────────────────────
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
-
         const genAI = new GoogleGenerativeAI(apiKey);
-        // imagen-3.0-generate-002 supports image output via generateContent
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-2.0-flash-exp-image-generation',
-        });
+        const prompt = buildPrompt(procedureNames, procedureEffects);
+        const imageParts = [
+          { inlineData: { data: photoBase64, mimeType: photoMimeType } },
+          { text: prompt },
+        ];
 
-        const result = await model.generateContent([
-          {
-            inlineData: {
-              data: photoBase64,
-              mimeType: photoMimeType,
-            },
-          },
-          { text: buildGeminiPrompt(procedures) },
-        ]);
+        // ── 1. Try Nano Banana Pro ──────────────────────────────────────────
+        let imageDataUrl: string | null = null;
+        let modelUsed = '';
 
-        const response = result.response;
-        const parts = response.candidates?.[0]?.content?.parts;
-
-        // Find the inline image part in the response
-        const imagePart = parts?.find((p) => p.inlineData?.mimeType?.startsWith('image/'));
-        if (!imagePart?.inlineData) {
-          throw new Error('Gemini did not return an image');
+        try {
+          const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
+          const result = await model.generateContent(imageParts);
+          for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
+            if (part.inlineData?.mimeType?.startsWith('image/')) {
+              imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+              modelUsed = 'gemini-3-pro-image-preview';
+              break;
+            }
+          }
+          if (!imageDataUrl) {
+            logger.warn('Nano Banana Pro returned text only — using fallback');
+          }
+        } catch (e) {
+          logger.warn('Nano Banana Pro unavailable, using fallback', e);
         }
 
-        const generatedBase64 = imagePart.inlineData.data;
-        const generatedMime = imagePart.inlineData.mimeType as string;
-        const ext = generatedMime.split('/')[1] ?? 'jpg';
+        // ── 2. Fallback: Gemini 2.5 Flash with image output ────────────────
+        if (!imageDataUrl) {
+          const model = genAI.getGenerativeModel({
+            model: 'gemini-2.5-flash-preview-04-17',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
+          });
+          const result = await model.generateContent(imageParts);
+          for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
+            if (part.inlineData?.mimeType?.startsWith('image/')) {
+              imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+              modelUsed = 'gemini-2.5-flash-preview-04-17';
+              break;
+            }
+          }
+        }
 
-        // ── 2. Upload to Firebase Storage ─────────────────────────────────
-        const bucket = admin.storage().bucket();
-        const storagePath = `results/${sessionId}/generated.${ext}`;
-        const file = bucket.file(storagePath);
+        if (!imageDataUrl) {
+          throw new Error('No image returned by any model');
+        }
 
-        await file.save(Buffer.from(generatedBase64, 'base64'), {
-          metadata: { contentType: generatedMime },
-        });
-
-        // Make the file publicly readable
-        await file.makePublic();
-        const generatedImageUrl = file.publicUrl();
-
-        logger.info('generateImage success', { sessionId, storagePath });
-        res.status(200).json({ generatedImageUrl, sessionId });
+        logger.info('generateImage success', { modelUsed });
+        res.status(200).json({ imageDataUrl, modelUsed });
       } catch (err) {
-        logger.error('generateImage error', { sessionId, err });
+        logger.error('generateImage error', err);
         res.status(500).json({ error: 'Error al generar imagen. Intenta nuevamente.' });
       }
     });
