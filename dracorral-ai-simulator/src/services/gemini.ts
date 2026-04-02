@@ -80,7 +80,7 @@ export class GeminiApiError extends Error {
   }
 }
 
-// ─── Per-model generation (shared pattern, no responseModalities) ─────────────
+// ─── Per-model generation (no responseModalities — native image models) ──────
 
 const generateWithModel = async (
   modelName: string,
@@ -111,6 +111,44 @@ const generateWithModel = async (
   }
 };
 
+// ─── Proven fallback: Gemini 2.5 Flash with responseModalities ────────────────
+
+const generateWithFlash25 = async (
+  request: GeminiImageRequest,
+): Promise<GeminiImageResult | null> => {
+  const startTime = Date.now();
+  const modelName = 'gemini-2.5-flash-preview-04-17';
+  try {
+    const genAI = new GoogleGenerativeAI(API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        // @ts-expect-error: responseModalities not yet in type definitions
+        responseModalities: ['IMAGE', 'TEXT'],
+      },
+    });
+    const result = await model.generateContent([
+      { inlineData: { data: request.photoBase64, mimeType: request.photoMimeType } },
+      { text: buildGenerationPrompt(request.selectedProcedures) },
+    ]);
+    for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
+      if (part.inlineData?.mimeType?.startsWith('image/')) {
+        return {
+          imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+          modelUsed: modelName,
+          generationTimeMs: Date.now() - startTime,
+        };
+      }
+    }
+    console.warn(`[AI] ${modelName} returned no image part`);
+    return null;
+  } catch (error) {
+    console.warn(`[AI] ${modelName} failed:`, (error as Error).message);
+    return null;
+  }
+};
+
+// Try newer native models first, then the proven responseModalities fallback
 const IMAGE_MODELS = [
   'gemini-3-pro-image-preview',
   'gemini-3.1-flash-image-preview',
@@ -129,6 +167,8 @@ const generateDirectFromBrowser = async (
       'VITE_GEMINI_API_KEY is not set in .env.local',
     );
   }
+
+  // 1. Try newer native image models
   for (const modelName of IMAGE_MODELS) {
     const result = await generateWithModel(modelName, request);
     if (result) {
@@ -136,10 +176,19 @@ const generateDirectFromBrowser = async (
       return result;
     }
   }
+
+  // 2. Proven fallback: Gemini 2.5 Flash with responseModalities
+  console.info('[AI] Falling back to gemini-2.5-flash-preview-04-17...');
+  const fallback = await generateWithFlash25(request);
+  if (fallback) {
+    console.info(`[AI] ✓ Generated with ${fallback.modelUsed} in ${fallback.generationTimeMs}ms`);
+    return fallback;
+  }
+
   throw new GeminiApiError(
     'All models failed',
     'No pudimos generar tu imagen. Por favor intenta nuevamente en 30 segundos.',
-    'All three image models returned no image data',
+    'All four models returned no image data',
   );
 };
 
