@@ -56,9 +56,25 @@ const Field = memo(function Field({
       <label htmlFor={id} className="block font-sans text-xs font-medium text-charcoal mb-1.5">
         {label}
       </label>
-      <div className={clsx('flex rounded-[var(--radius-sm)] border transition-colors', error ? 'border-red-400' : 'border-gold-light focus-within:border-gold')}>
+      <div
+        className={clsx(
+          'flex rounded-[var(--radius-sm)] border transition-colors',
+          error
+            ? 'border-red-400'
+            : 'border-[var(--sage-100)] focus-within:border-[var(--sage-500)]',
+        )}
+      >
         {prefix && (
-          <span className="flex-shrink-0 flex items-center px-3 bg-cream-dark border-r border-gold-light rounded-l-[var(--radius-sm)] font-sans text-sm text-charcoal-light select-none">
+          <span
+            className="flex-shrink-0 flex items-center px-3 rounded-l-[var(--radius-sm)] select-none"
+            style={{
+              background: 'var(--sage-50)',
+              borderRight: '1px solid var(--sage-100)',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: '14px',
+            }}
+          >
             {prefix}
           </span>
         )}
@@ -73,10 +89,16 @@ const Field = memo(function Field({
           placeholder={placeholder}
           inputMode={inputMode}
           className={clsx(
-            'flex-1 bg-white px-4 py-3.5 text-sm font-sans text-charcoal placeholder:text-muted/50',
-            'min-h-[52px] focus:outline-none',
+            'flex-1 bg-white px-4 py-3.5 placeholder:text-muted/50',
+            'focus:outline-none',
             prefix ? 'rounded-r-[var(--radius-sm)]' : 'rounded-[var(--radius-sm)]',
           )}
+          style={{
+            minHeight: '52px',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '15px',
+            color: 'var(--text-primary)',
+          }}
         />
       </div>
       {error && (
@@ -104,17 +126,24 @@ const AccordionItem = memo(function AccordionItem({
   children,
 }: AccordionItemProps) {
   return (
-    <div className="border-b border-gold-light/40 last:border-none">
+    <div
+      className="border-b last:border-none"
+      style={{ borderColor: 'var(--sage-100)' }}
+    >
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="w-full flex items-center justify-between gap-3 py-3.5 text-left min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-inset"
+        className="w-full flex items-center justify-between gap-3 py-3.5 text-left min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-inset"
       >
-        <span className="font-sans text-sm font-medium text-charcoal">{title}</span>
+        <span
+          className="font-sans text-sm"
+          style={{ fontWeight: 500, color: 'var(--sage-700)' }}
+        >{title}</span>
         <ChevronDown
           size={15}
-          className={clsx('flex-shrink-0 text-muted transition-transform duration-200', isOpen && 'rotate-180')}
+          className={clsx('flex-shrink-0 transition-transform duration-200', isOpen && 'rotate-180')}
+          style={{ color: 'var(--text-muted)' }}
         />
       </button>
       <div
@@ -235,16 +264,30 @@ export function Step4Lead({
             type="button"
             onClick={() => handleCopy(code)}
             aria-label={`Copiar código ${code}`}
-            className="code-shimmer w-full rounded-[var(--radius)] border-2 border-gold/40 px-6 py-6 text-center transition-transform duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
-            style={{ boxShadow: 'var(--shadow-gold)' }}
+            className="code-shimmer w-full px-6 py-6 text-center transition-transform duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+            style={{
+              background: 'var(--gold-pale)',
+              border: '1.5px solid var(--gold)',
+              borderRadius: 'var(--radius-card)',
+              boxShadow: 'var(--shadow-gold)',
+            }}
           >
             <p
-              className="text-[32px] sm:text-[38px] text-charcoal tracking-[0.12em] leading-none"
-              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 700 }}
+              className="leading-none"
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '36px',
+                fontWeight: 700,
+                color: 'var(--sage-700)',
+                letterSpacing: '0.14em',
+              }}
             >
               {code}
             </p>
-            <p className="font-sans text-xs text-muted mt-2">
+            <p
+              className="mt-2"
+              style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}
+            >
               {copied ? '✓ ¡Copiado!' : 'Toca para copiar'}
             </p>
           </button>
@@ -275,7 +318,7 @@ export function Step4Lead({
             )}
             style={{
               backgroundColor: '#25D366',
-              boxShadow: '0 4px 16px rgba(37,211,102,0.25)',
+              boxShadow: '0 4px 16px rgba(37,211,102,0.22)',
             }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -299,8 +342,11 @@ export function Step4Lead({
 
           {/* FAQ accordion */}
           <div
-            className="rounded-[var(--radius)] border border-gold-light/40 px-4"
-            style={{ backgroundColor: 'var(--cream-dark)' }}
+            className="rounded-[var(--radius)] px-4"
+            style={{
+              background: 'var(--sage-50)',
+              border: '1px solid var(--sage-100)',
+            }}
           >
             <AccordionItem
               title="¿Qué incluye tu diagnóstico?"
@@ -377,34 +423,47 @@ export function Step4Lead({
 
       {/* Price card */}
       <div
-        className="rounded-[var(--radius)] border border-gold/40 p-4 mb-6 space-y-3"
-        style={{ backgroundColor: 'var(--gold-pale)', boxShadow: 'var(--shadow-gold)' }}
+        className="rounded-[var(--radius)] p-4 mb-6 space-y-3"
+        style={{
+          background: 'var(--sage-50)',
+          border: '1px solid var(--sage-100)',
+        }}
       >
         <p
-          className="text-[15px] text-charcoal font-semibold"
-          style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+          className="text-[15px] font-semibold"
+          style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: 'var(--sage-700)' }}
         >
           Sesión de Diagnóstico Personalizado
         </p>
         <div className="flex items-baseline gap-3">
-          <span className="font-sans text-sm text-muted line-through">$25.000</span>
           <span
-            className="text-[22px] text-gold font-bold leading-none"
-            style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+            className="line-through"
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--text-hint)' }}
+          >
+            $25.000
+          </span>
+          <span
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontSize: '24px',
+              fontWeight: 600,
+              color: 'var(--gold)',
+              lineHeight: 1,
+            }}
           >
             $15.000 CLP
           </span>
         </div>
-        <p className="font-sans text-xs text-charcoal-light">Con tu código exclusivo</p>
+        <p className="font-sans text-xs" style={{ color: 'var(--text-muted)' }}>Con tu código exclusivo</p>
         <ul className="space-y-1.5">
           {[
             '60 minutos con la Dra. Corral',
             'Evaluación facial completa',
             'Plan de tratamiento a medida',
           ].map((item) => (
-            <li key={item} className="flex items-start gap-2 font-sans text-xs text-charcoal">
-              <span className="text-green-600 mt-0.5 flex-shrink-0">✅</span>
-              {item}
+            <li key={item} className="flex items-start gap-2 font-sans text-xs">
+              <span style={{ color: '#2D7D46' }} className="mt-0.5 flex-shrink-0">✅</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{item}</span>
             </li>
           ))}
         </ul>
@@ -473,11 +532,18 @@ export function Step4Lead({
             'w-full flex items-center justify-center gap-2.5',
             'font-sans font-medium text-base rounded-[var(--radius)] py-4 min-h-[56px]',
             'transition-all duration-200',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2',
-            isLoading
-              ? 'bg-gold-light text-muted cursor-wait'
-              : 'bg-gold text-charcoal hover:bg-gold-light shadow-[var(--shadow-gold)] active:scale-[0.99]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+            !isLoading && 'active:scale-[0.99]',
           )}
+          style={isLoading ? {
+            background: 'var(--sage-100)',
+            color: 'var(--text-muted)',
+            cursor: 'wait',
+          } : {
+            background: 'var(--sage-500)',
+            color: '#FFFFFF',
+            boxShadow: 'var(--shadow-sage)',
+          }}
         >
           {isLoading ? (
             <>

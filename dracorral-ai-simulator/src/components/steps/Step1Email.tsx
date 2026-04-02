@@ -43,47 +43,47 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = 'var(--sage-dark)';
-    e.target.style.boxShadow = '0 0 0 3px rgba(74,92,58,0.12)';
+    e.target.style.borderColor = 'var(--sage-500)';
+    e.target.style.boxShadow = '0 0 0 3px rgba(90,114,72,0.12)';
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = hasError ? '#dc2626' : 'var(--sage-pale)';
+    e.target.style.borderColor = hasError ? '#DC2626' : 'var(--sage-100)';
     e.target.style.boxShadow = 'none';
   };
 
   return (
     <main
       style={{
-        flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: 0,
+        minHeight: '100vh',
+        backgroundColor: 'var(--cream)',
       }}
     >
-      {/* Hero gradient section */}
+      {/* Hero section */}
       <div
         style={{
-          background: 'linear-gradient(160deg, var(--sage-dark), var(--sage-mid))',
+          background: 'linear-gradient(180deg, var(--sage-50) 0%, #FFFFFF 100%)',
           flex: '0 0 42vh',
-          minHeight: '220px',
+          minHeight: '200px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '48px 24px 64px',
+          padding: '48px 24px 56px',
         }}
       >
         {/* D|C logo */}
         <div
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: '40px',
+            fontSize: '44px',
             fontWeight: 700,
-            color: '#FFFFFF',
-            letterSpacing: '0.15em',
+            color: 'var(--sage-700)',
+            letterSpacing: '0.14em',
             lineHeight: 1,
-            marginBottom: '16px',
+            marginBottom: '12px',
           }}
         >
           D|C
@@ -93,11 +93,11 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
         <p
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: '22px',
+            fontSize: '21px',
             fontStyle: 'italic',
-            color: 'rgba(255,255,255,0.92)',
+            color: 'var(--sage-500)',
             textAlign: 'center',
-            maxWidth: '280px',
+            maxWidth: '260px',
             lineHeight: 1.4,
             margin: 0,
           }}
@@ -106,7 +106,7 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
         </p>
       </div>
 
-      {/* Form card — overlaps gradient by 24px */}
+      {/* Form card — overlaps hero by 24px */}
       <div
         className="slide-up email-card"
         style={{
@@ -119,6 +119,7 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
           width: '100%',
           alignSelf: 'center',
           boxSizing: 'border-box',
+          boxShadow: '0 -4px 24px rgba(0,0,0,0.06)',
           overflowY: 'auto',
         }}
       >
@@ -126,11 +127,11 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
         <h1
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: '28px',
+            fontSize: '26px',
             fontWeight: 600,
-            color: 'var(--sage-dark)',
+            color: '#1E2D16',
             lineHeight: 1.2,
-            margin: '0 0 12px',
+            margin: '0 0 10px',
           }}
         >
           Descubre cómo quedarías
@@ -140,10 +141,10 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
         <p
           style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: '14px',
+            fontSize: '13px',
             color: 'var(--text-muted)',
             lineHeight: 1.6,
-            margin: '0 0 20px',
+            margin: '0 0 18px',
           }}
         >
           Sube tu foto y visualiza el resultado de botox, rellenos y más — con
@@ -157,15 +158,16 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
             flexWrap: 'wrap',
             gap: '8px',
             justifyContent: 'center',
-            marginBottom: '28px',
+            marginBottom: '24px',
           }}
         >
           {FEATURES.map((feature) => (
             <span
               key={feature}
               style={{
-                background: 'var(--sage-pale)',
-                color: 'var(--sage-dark)',
+                background: 'var(--sage-50)',
+                color: 'var(--sage-700)',
+                border: '1px solid var(--sage-100)',
                 fontFamily: 'var(--font-sans)',
                 fontSize: '11px',
                 fontWeight: 500,
@@ -216,8 +218,8 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
                 fontSize: '15px',
                 color: 'var(--text-dark)',
                 background: '#FFFFFF',
-                border: `1.5px solid ${hasError ? '#dc2626' : 'var(--sage-pale)'}`,
-                borderRadius: 'var(--radius-card)',
+                border: `1.5px solid ${hasError ? '#DC2626' : 'var(--sage-100)'}`,
+                borderRadius: 'var(--radius-sm)',
                 outline: 'none',
                 boxSizing: 'border-box',
                 transition: 'border-color 200ms ease, box-shadow 200ms ease',
@@ -229,7 +231,7 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
                 style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: '12px',
-                  color: '#dc2626',
+                  color: '#DC2626',
                   marginTop: '6px',
                   marginBottom: 0,
                 }}
@@ -250,9 +252,9 @@ export function Step1Email({ onComplete }: Step1EmailProps) {
           style={{
             fontFamily: 'var(--font-sans)',
             fontSize: '11px',
-            color: 'var(--text-muted)',
+            color: 'var(--text-hint)',
             textAlign: 'center',
-            marginTop: '12px',
+            marginTop: '10px',
             marginBottom: 0,
           }}
         >

@@ -102,8 +102,6 @@ export function Step1Photo({ onComplete, initialPreviewUrl }: Step1PhotoProps) {
         setIsProcessing(false);
       }
     },
-    // onComplete intentionally excluded: processFile only prepares; Continuar fires it
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

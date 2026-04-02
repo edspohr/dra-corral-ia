@@ -45,7 +45,12 @@ type Action =
 function simulatorReducer(state: SimulatorState, action: Action): SimulatorState {
   switch (action.type) {
     case 'GO_TO_STEP':
-      return { ...state, step: action.payload, error: null };
+      return {
+        ...state,
+        step: action.payload,
+        error: null,
+        generatedImageUrl: action.payload < state.step ? null : state.generatedImageUrl,
+      };
 
     case 'SET_EMAIL':
       // Capture email and automatically advance to photo step

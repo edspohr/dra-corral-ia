@@ -16,16 +16,15 @@ export function Header() {
         top: 0,
         zIndex: 50,
         width: '100%',
-        height: '64px',
+        height: '60px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 20px',
-        backgroundColor: 'var(--sage-dark)',
-        borderBottom: '1px solid rgba(255,255,255,0.15)',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        boxShadow: scrolled ? 'var(--shadow-card)' : 'none',
-        transition: 'box-shadow 300ms ease, backdrop-filter 300ms ease',
+        padding: '0 24px',
+        backgroundColor: '#FFFFFF',
+        borderBottom: '1px solid var(--sage-100)',
+        boxShadow: scrolled ? '0 1px 0 rgba(90,114,72,0.10)' : 'none',
+        transition: 'box-shadow 300ms ease',
         boxSizing: 'border-box',
       }}
     >
@@ -34,10 +33,10 @@ export function Header() {
         <div
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: '24px',
+            fontSize: '22px',
             fontWeight: 700,
-            color: '#FFFFFF',
-            letterSpacing: '0.15em',
+            color: 'var(--sage-700)',
+            letterSpacing: '0.12em',
             lineHeight: 1,
           }}
         >
@@ -46,10 +45,10 @@ export function Header() {
         <div
           style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: '10px',
+            fontSize: '9px',
             fontWeight: 400,
-            color: 'rgba(255,255,255,0.75)',
-            letterSpacing: '0.3em',
+            color: 'var(--text-muted)',
+            letterSpacing: '0.28em',
             textTransform: 'uppercase',
             marginTop: '3px',
           }}
@@ -63,7 +62,7 @@ export function Header() {
         style={{
           fontFamily: 'var(--font-sans)',
           fontSize: '11px',
-          color: 'rgba(255,255,255,0.6)',
+          color: 'var(--text-hint)',
           textAlign: 'right',
         }}
       >

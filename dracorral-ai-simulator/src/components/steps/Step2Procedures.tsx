@@ -47,15 +47,22 @@ const ChipSelector = memo(function ChipSelector({
               type="button"
               onClick={() => onChange(opt)}
               aria-pressed={isSelected}
-              style={{ scrollSnapAlign: 'start' }}
               className={clsx(
                 'flex-shrink-0 px-4 py-2 text-xs font-sans rounded-full border',
                 'transition-all duration-150 whitespace-nowrap min-h-[38px]',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-1',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
                 isSelected
-                  ? 'bg-gold border-gold text-charcoal font-medium shadow-[var(--shadow-gold)]'
-                  : 'bg-white/60 border-gold-light text-muted hover:border-gold hover:text-charcoal-light',
+                  ? ''
+                  : 'bg-white/60 border-[var(--sage-100)] text-muted hover:border-[var(--sage-500)] hover:text-[var(--sage-700)]',
               )}
+              style={isSelected ? {
+                scrollSnapAlign: 'start',
+                background: 'var(--sage-500)',
+                borderColor: 'var(--sage-500)',
+                color: '#FFFFFF',
+                fontWeight: 500,
+                boxShadow: 'var(--shadow-sage)',
+              } : { scrollSnapAlign: 'start' }}
             >
               {opt}
             </button>
@@ -99,13 +106,18 @@ const ProcedureCard = memo(function ProcedureCard({
   return (
     <div
       className={clsx(
-        'rounded-[var(--radius)] border transition-all duration-200',
-        // Subtle lift on hover (desktop)
+        'rounded-[var(--radius)] transition-all duration-200',
         'hover:-translate-y-px will-change-transform',
-        isEnabled
-          ? 'bg-gold-pale border-gold shadow-[var(--shadow-gold)]'
-          : 'bg-cream-dark/50 border-gold-light/70 shadow-[var(--shadow-soft)]',
       )}
+      style={isEnabled ? {
+        background: 'var(--sage-50)',
+        border: '2px solid var(--sage-500)',
+        boxShadow: 'var(--shadow-sage)',
+      } : {
+        background: '#FFFFFF',
+        border: '1px solid var(--sage-100)',
+        boxShadow: '0 1px 3px rgba(30,30,20,0.06)',
+      }}
     >
       {/* ── Toggle row ── */}
       <button
@@ -126,11 +138,17 @@ const ProcedureCard = memo(function ProcedureCard({
         <div
           aria-hidden="true"
           className={clsx(
-            'w-6 h-6 rounded-md border-2 flex-shrink-0',
+            'w-6 h-6 rounded-md flex-shrink-0',
             'flex items-center justify-center',
             'transition-all duration-200',
-            isEnabled ? 'bg-gold border-gold' : 'bg-white/80 border-gold-light',
           )}
+          style={isEnabled ? {
+            background: 'var(--sage-500)',
+            border: '2px solid var(--sage-500)',
+          } : {
+            background: 'rgba(255,255,255,0.8)',
+            border: '1.5px solid var(--sage-100)',
+          }}
         >
           {isEnabled && <Check size={13} className="text-white" strokeWidth={3} />}
         </div>
@@ -366,12 +384,16 @@ export function Step2Procedures({
         <div
           className={clsx(
             'sm:hidden fixed bottom-0 left-0 right-0 z-40',
-            'bg-cream/95 backdrop-blur-md',
-            'border-t border-gold-light',
             'px-4 pt-3',
             'slide-up',
           )}
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
+          style={{
+            background: 'rgba(250,248,244,0.96)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            borderTop: '1px solid var(--sage-100)',
+            paddingBottom: 'max(env(safe-area-inset-bottom), 16px)',
+          }}
         >
           {/* Selection summary */}
           <div className="flex items-center gap-2.5 mb-3">
@@ -401,13 +423,17 @@ export function Step2Procedures({
             onClick={handleContinue}
             className={clsx(
               'w-full flex items-center justify-center gap-2',
-              'bg-gold text-charcoal font-sans font-medium text-base',
+              'font-sans font-medium text-base',
               'rounded-[var(--radius)] py-3.5 min-h-[52px]',
-              'hover:bg-gold-light active:scale-[0.98]',
+              'active:scale-[0.98]',
               'transition-all duration-150',
-              'shadow-[var(--shadow-gold)]',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
             )}
+            style={{
+              background: 'var(--sage-500)',
+              color: '#FFFFFF',
+              boxShadow: 'var(--shadow-sage)',
+            }}
           >
             <Sparkles size={16} aria-hidden="true" />
             Ver mi resultado →

@@ -73,7 +73,7 @@ export function Step4Booking({
 
       setLeadCode(code);
       setSubmitted(true);
-    } catch (err) {
+    } catch {
       setError('Hubo un problema al guardar tu solicitud. Por favor intenta nuevamente.');
     } finally {
       setLoading(false);

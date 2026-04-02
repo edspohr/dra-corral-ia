@@ -6,7 +6,6 @@ import {
   memo,
 } from 'react';
 import { RefreshCw, Share2, Check, ArrowLeft } from 'lucide-react';
-import clsx from 'clsx';
 import { PROCEDURES } from '../../data/procedures';
 import type { ProcedureSelection } from '../../types';
 
@@ -49,77 +48,122 @@ const LoadingScreen = memo(function LoadingScreen() {
 
   return (
     <div
-      className="flex-1 flex flex-col items-center justify-center px-6 py-16 min-h-[60vh]"
-      style={{ background: 'var(--sage-dark)' }}
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--cream)',
+        padding: '0 24px',
+      }}
     >
-      {/* Ripple rings around D|C monogram */}
-      <div className="relative flex items-center justify-center mb-10">
+      {/* Monogram circle with ripple rings */}
+      <div
+        style={{
+          width: '80px',
+          height: '80px',
+          borderRadius: '50%',
+          border: '1.5px solid var(--sage-100)',
+          backgroundColor: '#FFFFFF',
+          boxShadow: 'var(--shadow-soft)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          marginBottom: '32px',
+        }}
+      >
         {[0, 1, 2].map((i) => (
           <div
             key={i}
             aria-hidden="true"
-            className={clsx('gold-ripple-ring', 'absolute w-20 h-20 rounded-full border-2')}
-            style={{ borderColor: 'rgba(255,255,255,0.25)' }}
+            className="gold-ripple-ring"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              border: '2px solid var(--sage-100)',
+            }}
           />
         ))}
-        <div
-          className="relative z-10 w-20 h-20 rounded-full flex items-center justify-center"
+        <span
           style={{
-            background: 'rgba(255,255,255,0.12)',
-            border: '1px solid rgba(255,255,255,0.3)',
+            fontFamily: 'var(--font-serif)',
+            fontSize: '22px',
+            fontWeight: 700,
+            color: 'var(--sage-700)',
+            letterSpacing: '0.1em',
+            position: 'relative',
+            zIndex: 1,
           }}
         >
-          <span
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: '20px',
-              fontWeight: 700,
-              color: '#FFFFFF',
-              letterSpacing: '0.1em',
-            }}
-          >
-            D|C
-          </span>
-        </div>
+          D|C
+        </span>
       </div>
 
       {/* Rotating message */}
-      <div className="h-8 flex items-center justify-center mb-2 overflow-hidden">
+      <div
+        style={{
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          marginBottom: '6px',
+        }}
+      >
         <p
           key={msgKey}
-          className="msg-in font-sans text-base font-medium text-center"
-          style={{ color: 'rgba(255,255,255,0.92)' }}
+          className="msg-in"
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: '15px',
+            fontWeight: 500,
+            color: 'var(--text-primary)',
+            textAlign: 'center',
+            margin: 0,
+          }}
         >
           {LOADING_MESSAGES[msgIdx]}
         </p>
       </div>
 
       <p
-        className="font-sans text-sm text-center mb-8"
-        style={{ color: 'rgba(255,255,255,0.55)' }}
+        style={{
+          fontFamily: 'var(--font-sans)',
+          fontSize: '13px',
+          color: 'var(--text-muted)',
+          textAlign: 'center',
+          marginBottom: '28px',
+          margin: '0 0 28px',
+        }}
       >
         Esto toma aproximadamente 20–30 segundos
       </p>
 
       {/* Progress bar — animates 0→85% over 25s */}
-      <div className="w-full max-w-xs">
+      <div
+        role="progressbar"
+        aria-label="Generando imagen"
+        style={{
+          width: '100%',
+          maxWidth: '280px',
+          height: '3px',
+          backgroundColor: 'var(--sage-50)',
+          borderRadius: '2px',
+          overflow: 'hidden',
+        }}
+      >
         <div
-          className="relative h-1 rounded-full overflow-hidden"
-          style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}
-          role="progressbar"
-          aria-label="Generando imagen"
-        >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: 'inherit',
-              backgroundColor: 'rgba(255,255,255,0.7)',
-              width: '0%',
-              animation: 'aiProgress 25s cubic-bezier(0.1, 0.4, 0.3, 1) forwards',
-            }}
-          />
-        </div>
+          style={{
+            backgroundColor: 'var(--sage-500)',
+            height: '100%',
+            borderRadius: 'inherit',
+            width: '0%',
+            animation: 'aiProgress 25s cubic-bezier(0.1, 0.4, 0.3, 1) forwards',
+          }}
+        />
       </div>
     </div>
   );
@@ -137,6 +181,12 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({ beforeUrl, afterUrl 
   // Start at 35% — shows mostly AFTER for maximum first impact
   const [pos, setPos] = useState(35);
   const isDragging = useRef(false);
+  const [hintVisible, setHintVisible] = useState(true);
+
+  useEffect(() => {
+    const id = setTimeout(() => setHintVisible(false), 3000);
+    return () => clearTimeout(id);
+  }, []);
 
   const clamp = (v: number) => Math.max(2, Math.min(98, v));
 
@@ -163,6 +213,7 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({ beforeUrl, afterUrl 
   }, []);
 
   return (
+    <>
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden rounded-[var(--radius-card)] select-none touch-none cursor-ew-resize"
@@ -201,12 +252,26 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({ beforeUrl, afterUrl 
 
       {/* Drag handle */}
       <div
-        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-white flex items-center justify-center pointer-events-none"
-        style={{ left: `${pos}%`, boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}
+        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
+        style={{ left: `${pos}%` }}
       >
-        <span className="text-[11px] text-charcoal-light font-medium select-none leading-none tracking-tighter">
-          ◀▶
-        </span>
+        <div
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            backgroundColor: '#FFFFFF',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
+            <path d="M5 1L1 7L5 13" stroke="#5A7248" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M13 1L17 7L13 13" stroke="#5A7248" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
       </div>
 
       {/* ANTES label — bottom-left of visible BEFORE area */}
@@ -216,12 +281,12 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({ beforeUrl, afterUrl 
       >
         <span
           style={{
-            background: 'rgba(0,0,0,0.55)',
+            background: 'rgba(255,255,255,0.88)',
             backdropFilter: 'blur(4px)',
-            color: 'white',
+            color: 'var(--text-primary)',
             fontFamily: 'var(--font-sans)',
             fontSize: '11px',
-            letterSpacing: '0.15em',
+            letterSpacing: '0.14em',
             textTransform: 'uppercase',
             padding: '4px 10px',
             borderRadius: '100px',
@@ -238,12 +303,11 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({ beforeUrl, afterUrl 
       >
         <span
           style={{
-            background: 'var(--sage-dark)',
-            backdropFilter: 'blur(4px)',
-            color: 'white',
+            background: 'var(--sage-700)',
+            color: '#FFFFFF',
             fontFamily: 'var(--font-sans)',
             fontSize: '11px',
-            letterSpacing: '0.15em',
+            letterSpacing: '0.14em',
             textTransform: 'uppercase',
             padding: '4px 10px',
             borderRadius: '100px',
@@ -253,6 +317,24 @@ const BeforeAfterSlider = memo(function BeforeAfterSlider({ beforeUrl, afterUrl 
         </span>
       </div>
     </div>
+
+    {/* Swipe hint — fades out after 3s */}
+    <p
+      style={{
+        fontFamily: 'var(--font-sans)',
+        fontSize: '11px',
+        color: 'var(--sage-300)',
+        textAlign: 'center',
+        fontStyle: 'italic',
+        marginTop: '8px',
+        opacity: hintVisible ? 1 : 0,
+        transition: 'opacity 0.5s ease',
+        margin: '8px 0 0',
+      }}
+    >
+      ← Desliza para comparar →
+    </p>
+    </>
   );
 });
 
@@ -413,9 +495,6 @@ export function Step3Result({
             {/* Mobile: drag-to-reveal slider */}
             <div className="block sm:hidden mb-2">
               <BeforeAfterSlider beforeUrl={originalPhotoUrl} afterUrl={generatedImageUrl} />
-              <p className="font-sans text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>
-                Desliza para comparar
-              </p>
             </div>
 
             {/* Desktop: side-by-side */}
@@ -619,7 +698,7 @@ export function Step3Result({
               key={proc.id}
               style={{
                 background: proc.color + '40',
-                border: `1.5px solid ${proc.color}`,
+                border: '1px solid var(--sage-100)',
                 borderRadius: 'var(--radius-card)',
                 padding: '16px',
                 marginBottom: '12px',
@@ -669,7 +748,7 @@ export function Step3Result({
                     key={stat.label}
                     style={{
                       textAlign: 'center',
-                      background: 'rgba(255,255,255,0.7)',
+                      background: 'rgba(255,255,255,0.75)',
                       borderRadius: 'var(--radius-sm)',
                       padding: '10px 6px',
                     }}
@@ -702,7 +781,7 @@ export function Step3Result({
               {/* Aftercare */}
               <div
                 style={{
-                  background: 'rgba(255,255,255,0.6)',
+                  background: 'rgba(255,255,255,0.65)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '10px 12px',
                   display: 'flex',
@@ -789,8 +868,8 @@ export function Step3Result({
               display: 'block',
               width: '100%',
               height: '56px',
-              background: 'var(--sage-dark)',
-              color: 'white',
+              background: 'var(--gold)',
+              color: '#1E2D16',
               border: 'none',
               borderRadius: 'var(--radius-pill)',
               fontFamily: 'var(--font-sans)',
@@ -798,6 +877,7 @@ export function Step3Result({
               fontWeight: 500,
               cursor: 'pointer',
               marginBottom: '8px',
+              boxShadow: '0 4px 16px rgba(184,149,90,0.35)',
             }}
           >
             Continuar →

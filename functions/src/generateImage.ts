@@ -1,4 +1,4 @@
-import { onRequest } from 'firebase-functions/v2/https';
+import { onRequest, Request, Response } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import * as logger from 'firebase-functions/logger';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -11,6 +11,7 @@ const corsHandler = cors({
     const allowed = [
       'https://dracorral.cl',
       'https://www.dracorral.cl',
+      'https://dra-corral-ia.vercel.app',
     ];
     if (!origin || allowed.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
       callback(null, true);
@@ -95,7 +96,7 @@ export const generateImage = onRequest(
     memory: '512MiB',
     secrets: ['GOOGLE_AI_KEY'],
   },
-  (req, res) => {
+  (req: Request, res: Response) => {
     corsHandler(req, res, async () => {
       if (req.method !== 'POST') {
         res.status(405).json({ error: 'Método no permitido' });
@@ -127,41 +128,31 @@ export const generateImage = onRequest(
           { text: prompt },
         ];
 
-        // ── 1. Try Nano Banana Pro ──────────────────────────────────────────
+        // ── 3-model waterfall (no responseModalities — native image models) ──
+        const IMAGE_MODELS = [
+          'gemini-3-pro-image-preview',
+          'gemini-3.1-flash-image-preview',
+          'gemini-2.5-flash-image',
+        ];
+
         let imageDataUrl: string | null = null;
         let modelUsed = '';
 
-        try {
-          const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
-          const result = await model.generateContent(imageParts);
-          for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
-            if (part.inlineData?.mimeType?.startsWith('image/')) {
-              imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-              modelUsed = 'gemini-3-pro-image-preview';
-              break;
+        for (const modelName of IMAGE_MODELS) {
+          try {
+            const model = genAI.getGenerativeModel({ model: modelName });
+            const result = await model.generateContent(imageParts);
+            for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
+              if (part.inlineData?.mimeType?.startsWith('image/')) {
+                imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                modelUsed = modelName;
+                break;
+              }
             }
-          }
-          if (!imageDataUrl) {
-            logger.warn('Nano Banana Pro returned text only — using fallback');
-          }
-        } catch (e) {
-          logger.warn('Nano Banana Pro unavailable, using fallback', e);
-        }
-
-        // ── 2. Fallback: Gemini 2.5 Flash with image output ────────────────
-        if (!imageDataUrl) {
-          const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash-preview-04-17',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
-          });
-          const result = await model.generateContent(imageParts);
-          for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
-            if (part.inlineData?.mimeType?.startsWith('image/')) {
-              imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-              modelUsed = 'gemini-2.5-flash-preview-04-17';
-              break;
-            }
+            if (imageDataUrl) break;
+            logger.warn(`${modelName} returned no image part — trying next`);
+          } catch (e) {
+            logger.warn(`${modelName} failed — trying next`, e);
           }
         }
 

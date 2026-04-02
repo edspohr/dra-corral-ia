@@ -8,6 +8,7 @@ const corsHandler = cors({
     const allowed = [
       'https://dracorral.cl',
       'https://www.dracorral.cl',
+      'https://dra-corral-ia.vercel.app',
     ];
     if (!origin || allowed.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
       callback(null, true);

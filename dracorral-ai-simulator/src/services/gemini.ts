@@ -80,76 +80,42 @@ export class GeminiApiError extends Error {
   }
 }
 
-// ─── Primary: Nano Banana Pro ─────────────────────────────────────────────────
+// ─── Per-model generation (shared pattern, no responseModalities) ─────────────
 
-const generateWithNanaBananaPro = async (
+const generateWithModel = async (
+  modelName: string,
   request: GeminiImageRequest,
 ): Promise<GeminiImageResult | null> => {
   const startTime = Date.now();
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
-
+    const model = genAI.getGenerativeModel({ model: modelName });
     const result = await model.generateContent([
       { inlineData: { data: request.photoBase64, mimeType: request.photoMimeType } },
       { text: buildGenerationPrompt(request.selectedProcedures) },
     ]);
-
     for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
         return {
           imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          modelUsed: 'gemini-3-pro-image-preview',
+          modelUsed: modelName,
           generationTimeMs: Date.now() - startTime,
         };
       }
     }
-
-    console.warn('[AI] Nano Banana Pro returned text only — falling back to Gemini 2.5 Flash');
+    console.warn(`[AI] ${modelName} returned no image part`);
     return null;
   } catch (error) {
-    console.warn('[AI] Nano Banana Pro unavailable:', (error as Error).message);
+    console.warn(`[AI] ${modelName} failed:`, (error as Error).message);
     return null;
   }
 };
 
-// ─── Fallback: Gemini 2.5 Flash with image output ────────────────────────────
-
-const generateWithGemini25Flash = async (
-  request: GeminiImageRequest,
-): Promise<GeminiImageResult> => {
-  const startTime = Date.now();
-  const genAI = new GoogleGenerativeAI(API_KEY);
-
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-preview-04-17',
-    generationConfig: {
-      // @ts-expect-error: responseModalities is supported but not yet in type definitions
-      responseModalities: ['IMAGE', 'TEXT'],
-    },
-  });
-
-  const result = await model.generateContent([
-    { inlineData: { data: request.photoBase64, mimeType: request.photoMimeType } },
-    { text: buildGenerationPrompt(request.selectedProcedures) },
-  ]);
-
-  for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
-    if (part.inlineData?.mimeType?.startsWith('image/')) {
-      return {
-        imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-        modelUsed: 'gemini-2.5-flash-preview-04-17',
-        generationTimeMs: Date.now() - startTime,
-      };
-    }
-  }
-
-  throw new GeminiApiError(
-    'No image returned',
-    'No pudimos generar tu imagen. Por favor intenta nuevamente en 30 segundos.',
-    'Both models returned no image data',
-  );
-};
+const IMAGE_MODELS = [
+  'gemini-3-pro-image-preview',
+  'gemini-3.1-flash-image-preview',
+  'gemini-2.5-flash-image',
+];
 
 // ─── Direct browser call (used as primary path or fallback) ──────────────────
 
@@ -163,21 +129,18 @@ const generateDirectFromBrowser = async (
       'VITE_GEMINI_API_KEY is not set in .env.local',
     );
   }
-
-  const primaryResult = await generateWithNanaBananaPro(request);
-  if (primaryResult) {
-    console.info(
-      `[AI] ✓ Generated with ${primaryResult.modelUsed} in ${primaryResult.generationTimeMs}ms`,
-    );
-    return primaryResult;
+  for (const modelName of IMAGE_MODELS) {
+    const result = await generateWithModel(modelName, request);
+    if (result) {
+      console.info(`[AI] ✓ Generated with ${result.modelUsed} in ${result.generationTimeMs}ms`);
+      return result;
+    }
   }
-
-  console.info('[AI] Using Gemini 2.5 Flash fallback...');
-  const fallbackResult = await generateWithGemini25Flash(request);
-  console.info(
-    `[AI] ✓ Generated with ${fallbackResult.modelUsed} in ${fallbackResult.generationTimeMs}ms`,
+  throw new GeminiApiError(
+    'All models failed',
+    'No pudimos generar tu imagen. Por favor intenta nuevamente en 30 segundos.',
+    'All three image models returned no image data',
   );
-  return fallbackResult;
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────
