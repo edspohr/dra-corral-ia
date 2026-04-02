@@ -80,7 +80,8 @@ export class GeminiApiError extends Error {
   }
 }
 
-// ─── Per-model generation (no responseModalities — native image models) ──────
+// ─── Per-model generation ─────────────────────────────────────────────────────
+// All Nano Banana image models require responseModalities to return image parts.
 
 const generateWithModel = async (
   modelName: string,
@@ -89,41 +90,10 @@ const generateWithModel = async (
   const startTime = Date.now();
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: modelName });
-    const result = await model.generateContent([
-      { inlineData: { data: request.photoBase64, mimeType: request.photoMimeType } },
-      { text: buildGenerationPrompt(request.selectedProcedures) },
-    ]);
-    for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
-      if (part.inlineData?.mimeType?.startsWith('image/')) {
-        return {
-          imageDataUrl: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
-          modelUsed: modelName,
-          generationTimeMs: Date.now() - startTime,
-        };
-      }
-    }
-    console.warn(`[AI] ${modelName} returned no image part`);
-    return null;
-  } catch (error) {
-    console.warn(`[AI] ${modelName} failed:`, (error as Error).message);
-    return null;
-  }
-};
-
-// ─── Proven fallback: Gemini 2.5 Flash with responseModalities ────────────────
-
-const generateWithFlash25 = async (
-  request: GeminiImageRequest,
-): Promise<GeminiImageResult | null> => {
-  const startTime = Date.now();
-  const modelName = 'gemini-2.5-flash-preview-04-17';
-  try {
-    const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({
       model: modelName,
       generationConfig: {
-        // @ts-expect-error: responseModalities not yet in type definitions
+        // @ts-expect-error: responseModalities not yet in all SDK type definitions
         responseModalities: ['IMAGE', 'TEXT'],
       },
     });
@@ -148,11 +118,11 @@ const generateWithFlash25 = async (
   }
 };
 
-// Try newer native models first, then the proven responseModalities fallback
+// Waterfall: Pro (best quality) → Nano Banana 2 (fast) → Nano Banana (stable)
 const IMAGE_MODELS = [
-  'gemini-3-pro-image-preview',
-  'gemini-3.1-flash-image-preview',
-  'gemini-2.5-flash-image',
+  'gemini-3-pro-image-preview',    // Nano Banana Pro
+  'gemini-3.1-flash-image-preview', // Nano Banana 2
+  'gemini-2.5-flash-image',         // Nano Banana (stable)
 ];
 
 // ─── Direct browser call (used as primary path or fallback) ──────────────────
@@ -167,8 +137,6 @@ const generateDirectFromBrowser = async (
       'VITE_GEMINI_API_KEY is not set in .env.local',
     );
   }
-
-  // 1. Try newer native image models
   for (const modelName of IMAGE_MODELS) {
     const result = await generateWithModel(modelName, request);
     if (result) {
@@ -176,19 +144,10 @@ const generateDirectFromBrowser = async (
       return result;
     }
   }
-
-  // 2. Proven fallback: Gemini 2.5 Flash with responseModalities
-  console.info('[AI] Falling back to gemini-2.5-flash-preview-04-17...');
-  const fallback = await generateWithFlash25(request);
-  if (fallback) {
-    console.info(`[AI] ✓ Generated with ${fallback.modelUsed} in ${fallback.generationTimeMs}ms`);
-    return fallback;
-  }
-
   throw new GeminiApiError(
     'All models failed',
     'No pudimos generar tu imagen. Por favor intenta nuevamente en 30 segundos.',
-    'All four models returned no image data',
+    'All three Nano Banana models returned no image data',
   );
 };
 

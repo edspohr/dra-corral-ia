@@ -128,19 +128,24 @@ export const generateImage = onRequest(
           { text: prompt },
         ];
 
-        // ── 1. Try newer native image models (no responseModalities) ──────────
-        const NATIVE_MODELS = [
-          'gemini-3-pro-image-preview',
-          'gemini-3.1-flash-image-preview',
-          'gemini-2.5-flash-image',
+        // ── Nano Banana waterfall — all require responseModalities ───────────
+        // Pro (best quality) → Nano Banana 2 (fast) → Nano Banana (stable)
+        const IMAGE_MODELS = [
+          'gemini-3-pro-image-preview',     // Nano Banana Pro
+          'gemini-3.1-flash-image-preview',  // Nano Banana 2
+          'gemini-2.5-flash-image',          // Nano Banana (stable)
         ];
 
         let imageDataUrl: string | null = null;
         let modelUsed = '';
 
-        for (const modelName of NATIVE_MODELS) {
+        for (const modelName of IMAGE_MODELS) {
           try {
-            const model = genAI.getGenerativeModel({ model: modelName });
+            const model = genAI.getGenerativeModel({
+              model: modelName,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
+            });
             const result = await model.generateContent(imageParts);
             for (const part of result.response.candidates?.[0]?.content?.parts ?? []) {
               if (part.inlineData?.mimeType?.startsWith('image/')) {
@@ -153,24 +158,6 @@ export const generateImage = onRequest(
             logger.warn(`${modelName} returned no image part — trying next`);
           } catch (e) {
             logger.warn(`${modelName} failed — trying next`, e);
-          }
-        }
-
-        // ── 2. Proven fallback: Gemini 2.5 Flash with responseModalities ──────
-        if (!imageDataUrl) {
-          logger.info('Falling back to gemini-2.5-flash-preview-04-17 with responseModalities');
-          const fallbackModel = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash-preview-04-17',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            generationConfig: { responseModalities: ['IMAGE', 'TEXT'] } as any,
-          });
-          const fallbackResult = await fallbackModel.generateContent(imageParts);
-          for (const part of fallbackResult.response.candidates?.[0]?.content?.parts ?? []) {
-            if (part.inlineData?.mimeType?.startsWith('image/')) {
-              imageDataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-              modelUsed = 'gemini-2.5-flash-preview-04-17';
-              break;
-            }
           }
         }
 
