@@ -249,7 +249,7 @@ body.camera-open {
   animation: msg-in 0.35s ease-out forwards;
 }
 
-/* Step 4 — success card spring entrance */
+/* Result reveal — success card spring entrance */
 @keyframes scale-in {
   0%   { transform: scale(0.82); opacity: 0; }
   60%  { transform: scale(1.03); opacity: 1; }
@@ -258,25 +258,6 @@ body.camera-open {
 
 .scale-in {
   animation: scale-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-/* Step 4 — promo code shimmer */
-@keyframes code-shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position:  200% center; }
-}
-
-.code-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--gold-pale) 0%,
-    var(--gold-light) 35%,
-    #FFFBF0 50%,
-    var(--gold-light) 65%,
-    var(--gold-pale) 100%
-  );
-  background-size: 200% auto;
-  animation: code-shimmer 2.5s linear infinite;
 }
 
 /* Global focus ring */

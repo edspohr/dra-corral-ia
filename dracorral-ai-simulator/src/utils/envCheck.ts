@@ -5,7 +5,7 @@
  */
 
 export const checkRequiredEnvVars = (): void => {
-  const required = ['VITE_GEMINI_API_KEY', 'VITE_WA_PHONE'];
+  const required = ['VITE_GEMINI_API_KEY'];
 
   const missing = required.filter(
     (key) =>

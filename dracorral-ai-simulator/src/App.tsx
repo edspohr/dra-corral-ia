@@ -4,15 +4,14 @@ import { Header } from './components/layout/Header';
 import { StepIndicator } from './components/ui/StepIndicator';
 import { Step1Email } from './components/steps/Step1Email';
 import { Step1Photo } from './components/steps/Step1Photo';
-import { Step2Procedures } from './components/steps/Step2Procedures';
+import { Step3Effect } from './components/steps/Step3Effect';
 import { Step3Result } from './components/steps/Step3Result';
-import { Step4Lead } from './components/steps/Step4Lead';
 
-const STEP_LABELS = ['Datos', 'Tu foto', 'Tratamientos', 'Resultado', 'Agenda'];
+const STEP_LABELS = ['Email', 'Tu foto', 'Tratamiento', 'Resultado'];
 
 function App() {
   const simulator = useSimulator();
-  const { state, enabledProcedures } = simulator;
+  const { state } = simulator;
 
   // Trigger generation exactly once when we land on step 4 without a result
   const hasFiredRef = useRef(false);
@@ -40,7 +39,7 @@ function App() {
       {state.step !== 1 && <Header />}
 
       {/* Step indicator: shown on steps 2 and 3 only */}
-      {state.step !== 1 && state.step !== 4 && state.step !== 5 && (
+      {(state.step === 2 || state.step === 3) && (
         <StepIndicator currentStep={state.step} labels={STEP_LABELS} />
       )}
 
@@ -60,12 +59,12 @@ function App() {
         />
       )}
 
-      {/* Step 3: Procedure selection */}
+      {/* Step 3: Zone + effect + intensity selection */}
       {state.step === 3 && (
-        <Step2Procedures
-          procedures={state.procedures}
+        <Step3Effect
+          selection={state.selection}
           photoPreviewUrl={state.photoPreviewUrl}
-          onUpdateProcedure={simulator.updateProcedure}
+          onUpdateSelection={(sel) => simulator.setSelection(sel)}
           onComplete={() => simulator.goToStep(4)}
           onBack={() => simulator.goToStep(2)}
         />
@@ -76,23 +75,12 @@ function App() {
         <Step3Result
           originalPhotoUrl={state.photoPreviewUrl ?? ''}
           generatedImageUrl={state.generatedImageUrl}
-          selectedProcedures={enabledProcedures}
+          selection={state.selection!}
           isLoading={state.isLoading}
           error={state.error}
-          onRetry={handleRetry}
-          onContinue={() => simulator.goToStep(5)}
-          onBack={() => simulator.goToStep(3)}
-        />
-      )}
-
-      {/* Step 5: Lead capture + discount code */}
-      {state.step === 5 && (
-        <Step4Lead
           email={state.email ?? ''}
-          sessionId={state.sessionId ?? crypto.randomUUID()}
-          procedures={enabledProcedures.map((p) => p.id)}
-          onComplete={(code) => simulator.setLeadCode(code)}
-          onBack={() => simulator.goToStep(4)}
+          onRetry={handleRetry}
+          onBack={() => simulator.goToStep(3)}
         />
       )}
     </div>

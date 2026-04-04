@@ -1,33 +1,19 @@
-export type ProcedureId = 'toxina' | 'bioestimuladores' | 'exosomas' | 'polinucleotidos';
-export type ZoneOption = string;
+export type { ZoneId, EffectId, IntensityLevel } from '../data/hyaluronic';
 
-export interface ProcedureSelection {
-  id: ProcedureId;
-  enabled: boolean;
-  zone?: ZoneOption;
-  intensity?: string;
+export interface HyaluronicSelection {
+  zone: import('../data/hyaluronic').ZoneId;
+  effect: import('../data/hyaluronic').EffectId;
+  intensity: import('../data/hyaluronic').IntensityLevel;
 }
 
 export interface SimulatorState {
-  step: 1 | 2 | 3 | 4 | 5;
+  step: 1 | 2 | 3 | 4;
   email: string | null;
   photoFile: File | null;
   photoPreviewUrl: string | null;
-  photoStoragePath: string | null;
-  procedures: ProcedureSelection[];
+  selection: HyaluronicSelection | null;
   generatedImageUrl: string | null;
   sessionId: string | null;
-  leadCode: string | null;
   isLoading: boolean;
   error: string | null;
-}
-
-export interface LeadData {
-  nombre: string;
-  email: string;
-  telefono: string;
-  sessionId: string;
-  code: string;
-  procedures: ProcedureId[];
-  createdAt: Date;
 }
